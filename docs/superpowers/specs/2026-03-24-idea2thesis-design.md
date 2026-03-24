@@ -66,6 +66,27 @@ The core design is a supervisor-centered agent graph:
 - `doc-check agent`
   - validates thesis draft completeness, chapter structure, terminology consistency, and alignment with the original brief
 
+The backend modules must communicate through explicit typed payloads so that orchestration logic remains testable and replaceable. At minimum, the implementation should define contracts for:
+
+- `ParsedBrief`
+  - normalized brief content extracted from `.docx`
+  - includes title, requirements, constraints, optional tech hints, and draft-writing cues
+- `JobPlan`
+  - supervisor-produced execution plan
+  - includes inferred project category, selected stack policy, task list, and review criteria
+- `AgentTask`
+  - one handoff unit for a specialized agent
+  - includes role, objective, workspace paths, input context, and expected outputs
+- `AgentResult`
+  - structured output from one agent run
+  - includes summary, files created or changed, review notes, and machine-readable status
+- `ExecutionReport`
+  - command execution results
+  - includes command, working directory, exit code, duration, stdout path, stderr path, and policy decision
+- `JobSnapshot`
+  - UI-facing aggregate state
+  - includes stage, per-agent statuses, artifact list, validation state, and final disposition
+
 ## System Components
 
 ### 1. Web Application Shell
@@ -122,6 +143,15 @@ Responsibilities:
 
 The supervisor should keep a bounded retry policy and avoid infinite loops. For v1, retries should be configurable per stage with conservative defaults.
 
+Required internal boundaries:
+
+- parser returns `ParsedBrief` and raw extraction artifacts only; it does not call models
+- supervisor consumes `ParsedBrief` and emits `JobPlan` plus `AgentTask` records
+- agent runners consume `AgentTask` and emit `AgentResult`
+- execution layer consumes generated workspace metadata and emits `ExecutionReport`
+- API layer maps backend state into `JobSnapshot` for the UI
+- reviewers never mutate files directly; they return findings for supervisor-directed repair steps
+
 ### 4. Workspace and Artifact Manager
 
 Responsibilities:
@@ -157,6 +187,28 @@ Expected validation categories:
 - optional startup smoke check
 
 This layer is critical because the product promise includes Codex-like "generate then execute and fix" behavior.
+
+Execution policy for v1:
+
+- commands run only inside the current job workspace
+- command invocation uses an explicit allowlist by executable name
+- initial allowlist should cover common development commands only, such as `python`, `pip`, `pytest`, `node`, `npm`, `pnpm`, `yarn`, `npx`, `uv`, `bash`, and `sh`
+- shell scripts may run only when they are generated inside the job workspace and invoked through approved shells
+- destructive commands and patterns must be denied, including filesystem deletion outside workspace, privilege escalation, system package management, credential inspection, SSH usage, and arbitrary curl or wget pipelines
+- network access for verification should default to disabled except for package installation steps explicitly marked by the supervisor
+- secrets available to the app should be limited to model-provider credentials and must not be exposed to generated project processes unless a later feature explicitly permits it
+- each command must have timeout, output-size cap, and process-count limits
+- every command decision must be logged as `allowed`, `denied`, `timed_out`, or `completed`
+
+The supervisor must not emit raw shell text as the source of truth for execution. Instead, it should emit structured command requests with:
+
+- executable
+- arguments
+- working directory
+- purpose label
+- whether network is required
+
+The execution layer then validates each request against policy before running it.
 
 ### 6. Document Generation and Checking
 
@@ -252,10 +304,16 @@ Constraints:
 
 - local single-user only
 - execution confined to per-job workspace
+- structured command policy with executable allowlist
 - deny destructive shell operations by policy
+- deny commands that touch paths outside the workspace except read-only access to explicitly configured toolchains
+- network disabled by default for command execution; package install is the only allowed v1 exception
+- no inherited access to user SSH keys, Git credentials, shell history, or unrelated environment secrets
 - cap command duration and log size
 - expose executed commands to the user in logs
 - require explicit configuration for any future GitHub push automation
+
+The system should prefer safe failure over optimistic execution. If the execution layer cannot classify a generated command as safe, it must deny the command and return a diagnostic report to the supervisor.
 
 ## Testing Strategy
 
@@ -271,6 +329,16 @@ Test layers:
 - command execution policy tests
 - web API tests
 - selective end-to-end job tests with mocked models
+
+Minimum acceptance criteria:
+
+- execution policy tests prove that disallowed commands are rejected before launch
+- execution policy tests prove that allowed commands cannot escape the workspace
+- retry tests prove that stage retry caps stop the job with a clear terminal state after exhaustion
+- artifact tests prove that final outputs are packaged into a predictable directory structure and surfaced through the API
+- document tests prove that thesis draft generation produces the required top-level chapter structure for supported project types
+- export tests prove that markdown thesis artifacts can be prepared for future `.docx` conversion without losing section ordering or metadata
+- API tests prove that users can inspect command logs, reviewer findings, and final artifact locations
 
 Manual verification should cover:
 
@@ -302,3 +370,5 @@ The first implementation should favor a pragmatic local stack with:
 - minimal external dependencies beyond document parsing, web serving, and LLM access
 
 The UI does not need to become a full IDE in v1. It only needs enough affordances to configure, launch, observe, and inspect the generated outputs.
+
+The implementation should also keep generated-project templates and execution policy definitions explicit and versioned, rather than burying them inside prompts only. That keeps stack inference, command validation, and regression testing auditable.
