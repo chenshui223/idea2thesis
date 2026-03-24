@@ -249,6 +249,7 @@ Retry and propagation rules:
 - `policy_denied` and `policy_unclassified` do not retry the same command automatically; the supervisor must first change the plan, stack choice, or command request
 - `runtime_failed` may trigger bounded repair-and-retry when the supervisor can point to a concrete fix
 - `runtime_timed_out` may retry once with a narrower check, but must not loop indefinitely
+- `runtime_truncated` may retry once with reduced log verbosity or a narrower validation scope; repeated truncation terminates the stage with an incomplete-diagnostics status
 - repeated safety denials at the same stage terminate the stage with a final blocked status
 
 UI behavior for safety outcomes:
@@ -256,6 +257,7 @@ UI behavior for safety outcomes:
 - show a distinct "blocked by safety policy" state for `policy_denied` and `policy_unclassified`
 - show the policy reason, attempted executable, working directory, and sanitized arguments
 - distinguish blocked commands from normal test or build failures so users can see whether the issue is project quality or execution policy
+- show a distinct "output truncated" state for `runtime_truncated`, including whether the system retried with narrower scope and whether diagnostics are partial
 
 ### 6. Document Generation and Checking
 
@@ -392,6 +394,7 @@ Minimum acceptance criteria:
 - contract tests prove schema-versioned payloads can serialize, deserialize, and validate without loss for all core runtime objects
 - contract tests prove unsupported `schema_version` values fail with a clear compatibility error
 - API and UI tests prove safety-denied commands surface as blocked-policy diagnostics rather than generic execution failures
+- execution-state tests prove `policy_denied`, `policy_unclassified`, `runtime_failed`, `runtime_timed_out`, and `runtime_truncated` each produce the correct retry and UI outcome
 
 Manual verification should cover:
 
