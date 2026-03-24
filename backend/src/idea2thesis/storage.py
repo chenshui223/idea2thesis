@@ -29,6 +29,9 @@ class JobStorage:
             raise ValueError("job_id must not be empty")
         return normalized
 
+    def normalize_job_id(self, job_id: str) -> str:
+        return self._validate_job_id(job_id)
+
     def create_job_workspace(self, job_id: str) -> JobPaths:
         safe_job_id = self._validate_job_id(job_id)
         root_dir = (self.base_dir / safe_job_id).resolve()

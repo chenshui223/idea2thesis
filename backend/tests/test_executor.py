@@ -33,6 +33,8 @@ def test_executor_runs_allowed_command_and_captures_output(tmp_path: Path) -> No
     )
     assert report.status == "completed"
     assert report.exit_code == 0
+    assert Path(report.stdout_path).exists()
+    assert Path(report.stderr_path).exists()
 
 
 def test_executor_returns_runtime_failed_for_nonzero_exit(tmp_path: Path) -> None:

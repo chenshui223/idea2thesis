@@ -30,4 +30,5 @@ def test_parse_brief_extracts_structured_fields(tmp_path: Path) -> None:
     assert "Python 数据分析" in result.tech_hints
     assert "摘要" in result.thesis_cues
     assert "学生成绩分析系统" in result.raw_text
+    assert "Python 数据分析" in result.extraction_snapshot["paragraphs"]
     assert result.extraction_snapshot["tables"][0][1][0] == "摘要"

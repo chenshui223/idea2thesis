@@ -43,6 +43,22 @@ class ExecutionPolicy:
         resolved = path.resolve()
         return resolved == self.workspace_root or self.workspace_root in resolved.parents
 
+    def _validate_argument_paths(self, request: CommandRequest) -> PolicyOutcome | None:
+        for argument in request.arguments:
+            if argument.startswith("-"):
+                continue
+            candidate = Path(argument)
+            if not candidate.is_absolute() and len(candidate.parts) <= 1:
+                continue
+            target = candidate if candidate.is_absolute() else request.working_directory / candidate
+            try:
+                resolved = target.resolve()
+            except FileNotFoundError:
+                resolved = target.parent.resolve() / target.name
+            if not self._is_within_workspace(resolved):
+                return PolicyOutcome("policy_denied", "argument path escapes workspace")
+        return None
+
     def evaluate(self, request: CommandRequest) -> PolicyOutcome:
         if not self._is_within_workspace(request.working_directory):
             return PolicyOutcome("policy_denied", "working directory escapes workspace")
@@ -58,10 +74,18 @@ class ExecutionPolicy:
         if any(flag in joined_args for flag in ("--ignore-scripts=false", "postinstall")):
             return PolicyOutcome("policy_denied", "install scripts not allowed")
 
-        if request.requires_network and request.executable not in self.NETWORK_INSTALLERS:
-            return PolicyOutcome("policy_denied", "network not allowed for executable")
+        path_outcome = self._validate_argument_paths(request)
+        if path_outcome is not None:
+            return path_outcome
 
         if request.executable in {"bash", "sh"} and request.requires_network:
             return PolicyOutcome("policy_unclassified", "shell command requires manual review")
+
+        if request.requires_network and request.executable not in self.NETWORK_INSTALLERS:
+            return PolicyOutcome("policy_denied", "network not allowed for executable")
+
+        if request.executable in {"npm", "pnpm", "yarn"} and "install" in request.arguments:
+            if "--ignore-scripts" not in request.arguments:
+                return PolicyOutcome("policy_denied", "install scripts must be disabled")
 
         return PolicyOutcome("allowed", "request allowed")

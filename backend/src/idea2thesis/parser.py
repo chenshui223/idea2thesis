@@ -29,18 +29,29 @@ def parse_brief(file_path: Path) -> ParsedBrief:
     constraints: list[str] = []
     tech_hints: list[str] = []
     thesis_cues: list[str] = []
+    collect_tech_bullets = False
 
-    for paragraph in paragraphs[1:]:
-        if paragraph.startswith("功能要求："):
-            requirements.extend(_split_labeled_values(paragraph))
-        elif paragraph.startswith("约束条件："):
-            constraints.extend(_split_labeled_values(paragraph))
-        elif paragraph.startswith("论文提纲："):
-            thesis_cues.extend(_split_labeled_values(paragraph))
-        elif paragraph.startswith("技术要求"):
+    for paragraph in document.paragraphs[1:]:
+        text = paragraph.text.strip()
+        if not text:
             continue
-        elif "Python" in paragraph or "Java" in paragraph or "React" in paragraph:
-            tech_hints.append(paragraph)
+        style_name = paragraph.style.name if paragraph.style else ""
+        is_bullet = "Bullet" in style_name
+        if text.startswith("功能要求："):
+            requirements.extend(_split_labeled_values(text))
+            collect_tech_bullets = False
+        elif text.startswith("约束条件："):
+            constraints.extend(_split_labeled_values(text))
+            collect_tech_bullets = False
+        elif text.startswith("论文提纲："):
+            thesis_cues.extend(_split_labeled_values(text))
+            collect_tech_bullets = False
+        elif text.startswith("技术要求"):
+            collect_tech_bullets = True
+        elif collect_tech_bullets and is_bullet:
+            tech_hints.append(text)
+        elif "Python" in text or "Java" in text or "React" in text:
+            tech_hints.append(text)
 
     if tables:
         thesis_cues.extend(
