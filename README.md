@@ -43,6 +43,20 @@ npm run build
 npm run dev
 ```
 
+## Start Both Services
+
+After backend and frontend dependencies are installed, start both services with one command:
+
+```bash
+bash scripts/dev.sh
+```
+
+Optional environment check:
+
+```bash
+bash scripts/dev.sh --check
+```
+
 ## Local Jobs
 
 Generated jobs are stored under `jobs/<job-id>/`.
