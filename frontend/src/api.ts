@@ -20,3 +20,11 @@ export async function uploadBrief(file: File): Promise<JobSnapshot> {
   }
   return response.json();
 }
+
+export async function fetchJob(jobId: string): Promise<JobSnapshot> {
+  const response = await fetch(`/jobs/${jobId}`);
+  if (!response.ok) {
+    throw new Error("failed to fetch job");
+  }
+  return response.json();
+}

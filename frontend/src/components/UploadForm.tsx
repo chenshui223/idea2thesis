@@ -1,4 +1,7 @@
 type UploadFormProps = {
+  disabled: boolean;
+  loading: boolean;
+  errorMessage: string;
   onFileChange: (file: File | null) => void;
   onSubmit: () => void;
 };
@@ -13,12 +16,14 @@ export function UploadForm(props: UploadFormProps) {
           aria-label="Design Brief (.docx)"
           type="file"
           accept=".docx"
+          disabled={props.disabled}
           onChange={(event) => props.onFileChange(event.target.files?.[0] ?? null)}
         />
       </label>
-      <button type="button" onClick={props.onSubmit}>
-        Generate Project
+      <button type="button" disabled={props.disabled} onClick={props.onSubmit}>
+        {props.loading ? "Generating..." : "Generate Project"}
       </button>
+      {props.errorMessage ? <p>{props.errorMessage}</p> : null}
     </section>
   );
 }

@@ -69,6 +69,15 @@ Each job includes:
 - generated artifacts under `artifacts/`
 - logs under `logs/`
 
+## Frontend Upload Flow
+
+In the current frontend:
+
+- select a `.docx` brief
+- click `Generate Project`
+- the UI sends a real `POST /jobs` request
+- the dashboard then polls `GET /jobs/{job_id}` until the job reaches a terminal result
+
 ## Verification Evidence
 
 Repository verification evidence is stored under `artifacts/verification/`.
