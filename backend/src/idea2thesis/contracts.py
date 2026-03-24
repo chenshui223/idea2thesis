@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -13,6 +14,31 @@ class SchemaCompatibilityError(ValueError):
 
 class VersionedModel(BaseModel):
     schema_version: str = Field(default=SCHEMA_VERSION)
+
+    @classmethod
+    def _check_schema_version(cls, value: Any) -> None:
+        if isinstance(value, dict):
+            schema_version = value.get("schema_version", SCHEMA_VERSION)
+            if schema_version != SCHEMA_VERSION:
+                raise SchemaCompatibilityError(
+                    f"unsupported schema_version: {schema_version}"
+                )
+
+    @classmethod
+    def model_validate(cls, obj: Any, *args: Any, **kwargs: Any) -> "VersionedModel":
+        cls._check_schema_version(obj)
+        return super().model_validate(obj, *args, **kwargs)
+
+    @classmethod
+    def model_validate_json(
+        cls, json_data: str | bytes | bytearray, *args: Any, **kwargs: Any
+    ) -> "VersionedModel":
+        try:
+            payload = json.loads(json_data)
+        except (TypeError, json.JSONDecodeError):
+            payload = None
+        cls._check_schema_version(payload)
+        return super().model_validate_json(json_data, *args, **kwargs)
 
     @model_validator(mode="after")
     def validate_schema_version(self) -> "VersionedModel":

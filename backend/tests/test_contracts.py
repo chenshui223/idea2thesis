@@ -1,5 +1,3 @@
-from pydantic import ValidationError
-
 from idea2thesis.contracts import (
     AgentResult,
     AgentTask,
@@ -7,6 +5,7 @@ from idea2thesis.contracts import (
     JobPlan,
     JobSnapshot,
     ParsedBrief,
+    SchemaCompatibilityError,
 )
 
 
@@ -107,7 +106,7 @@ def test_snapshot_rejects_unsupported_version() -> None:
     }
     try:
         JobSnapshot.model_validate(payload)
-    except ValidationError as exc:
+    except SchemaCompatibilityError as exc:
         assert "unsupported schema_version" in str(exc)
     else:
         raise AssertionError("expected schema error")
