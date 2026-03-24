@@ -1,0 +1,12 @@
+.DS_Store
+.venv/
+__pycache__/
+.pytest_cache/
+node_modules/
+dist/
+coverage/
+jobs/
+.env
+.superpowers/
+backend/.coverage
+frontend/.vite/
