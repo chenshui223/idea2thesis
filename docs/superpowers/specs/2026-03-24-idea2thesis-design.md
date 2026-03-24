@@ -89,6 +89,15 @@ The backend modules must communicate through explicit typed payloads so that orc
 
 Each contract must be schema-versioned and serializable. v1 should define explicit JSON schemas or equivalent typed models for all contracts above, persist them alongside job artifacts when relevant, and validate them on both write and read boundaries. Round-trip serialization tests are required so contract drift is caught early.
 
+Contract versioning rules for v1:
+
+- every persisted runtime payload must include a `schema_version` field
+- the initial format is `v1alpha1`
+- additive fields that preserve old readers are allowed within the same version family
+- breaking shape changes require a new schema version
+- when the application reads an unsupported schema version from disk, it must mark the job as non-resumable and surface a clear compatibility error in the UI
+- v1 does not require automatic schema migration; unsupported historical payloads may be read only for diagnostics
+
 ## System Components
 
 ### 1. Web Application Shell
@@ -221,6 +230,32 @@ For package installation, the default v1 posture is:
 - allow network only for registry access during install steps
 - deny custom install hooks, arbitrary remote scripts, and direct shell pipelines
 - record whether an install ran in restricted mode and whether scripts were suppressed
+
+Safety failure taxonomy:
+
+- `policy_denied`
+  - command or path violates execution policy before launch
+- `policy_unclassified`
+  - execution layer cannot determine whether the request is safe
+- `runtime_failed`
+  - command launched but exited non-zero
+- `runtime_timed_out`
+  - command exceeded timeout
+- `runtime_truncated`
+  - command exceeded output or process limits
+
+Retry and propagation rules:
+
+- `policy_denied` and `policy_unclassified` do not retry the same command automatically; the supervisor must first change the plan, stack choice, or command request
+- `runtime_failed` may trigger bounded repair-and-retry when the supervisor can point to a concrete fix
+- `runtime_timed_out` may retry once with a narrower check, but must not loop indefinitely
+- repeated safety denials at the same stage terminate the stage with a final blocked status
+
+UI behavior for safety outcomes:
+
+- show a distinct "blocked by safety policy" state for `policy_denied` and `policy_unclassified`
+- show the policy reason, attempted executable, working directory, and sanitized arguments
+- distinguish blocked commands from normal test or build failures so users can see whether the issue is project quality or execution policy
 
 ### 6. Document Generation and Checking
 
@@ -355,6 +390,8 @@ Minimum acceptance criteria:
 - export tests prove that markdown thesis artifacts can be prepared for future `.docx` conversion without losing section ordering or metadata
 - API tests prove that users can inspect command logs, reviewer findings, and final artifact locations
 - contract tests prove schema-versioned payloads can serialize, deserialize, and validate without loss for all core runtime objects
+- contract tests prove unsupported `schema_version` values fail with a clear compatibility error
+- API and UI tests prove safety-denied commands surface as blocked-policy diagnostics rather than generic execution failures
 
 Manual verification should cover:
 
