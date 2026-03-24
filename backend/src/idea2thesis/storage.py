@@ -16,10 +16,24 @@ class JobPaths:
 
 class JobStorage:
     def __init__(self, base_dir: Path) -> None:
-        self.base_dir = base_dir
+        self.base_dir = base_dir.resolve()
+
+    def _validate_job_id(self, job_id: str) -> str:
+        candidate = Path(job_id)
+        if candidate.is_absolute():
+            raise ValueError("job_id must be relative")
+        if any(part in {"..", "."} for part in candidate.parts):
+            raise ValueError("job_id must not contain path traversal")
+        normalized = candidate.as_posix()
+        if not normalized or normalized == ".":
+            raise ValueError("job_id must not be empty")
+        return normalized
 
     def create_job_workspace(self, job_id: str) -> JobPaths:
-        root_dir = self.base_dir / job_id
+        safe_job_id = self._validate_job_id(job_id)
+        root_dir = (self.base_dir / safe_job_id).resolve()
+        if root_dir != self.base_dir and self.base_dir not in root_dir.parents:
+            raise ValueError("job workspace escapes base_dir")
         paths = JobPaths(
             root_dir=root_dir,
             input_dir=root_dir / "input",

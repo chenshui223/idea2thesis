@@ -12,3 +12,13 @@ def test_create_job_workspace_creates_expected_directories(tmp_path: Path) -> No
     assert paths.workspace_dir.exists()
     assert paths.artifacts_dir.exists()
     assert paths.logs_dir.exists()
+
+
+def test_create_job_workspace_rejects_path_traversal(tmp_path: Path) -> None:
+    storage = JobStorage(base_dir=tmp_path)
+    try:
+        storage.create_job_workspace("../escape")
+    except ValueError as exc:
+        assert "path traversal" in str(exc)
+    else:
+        raise AssertionError("expected path traversal rejection")
