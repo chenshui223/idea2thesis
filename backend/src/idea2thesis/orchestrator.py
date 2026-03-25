@@ -79,6 +79,55 @@ def _payload_string_list(payload: dict[str, object] | None, key: str) -> list[st
     return items or None
 
 
+def _payload_dict(payload: dict[str, object] | None, key: str) -> dict[str, object] | None:
+    if payload is None:
+        return None
+    value = payload.get(key)
+    return value if isinstance(value, dict) else None
+
+
+def _payload_dict_list(payload: dict[str, object] | None, key: str) -> list[dict[str, object]] | None:
+    if payload is None:
+        return None
+    value = payload.get(key)
+    if not isinstance(value, list):
+        return None
+    items = [item for item in value if isinstance(item, dict)]
+    return items or None
+
+
+def _safe_workspace_path(workspace_dir: Path, relative_path: str) -> Path | None:
+    candidate = Path(relative_path.strip())
+    if not relative_path.strip() or candidate.is_absolute():
+        return None
+    if any(part in {"..", "."} for part in candidate.parts):
+        return None
+    resolved = (workspace_dir / candidate).resolve()
+    if resolved != workspace_dir and workspace_dir not in resolved.parents:
+        return None
+    return resolved
+
+
+def _write_workspace_files_from_payload(
+    *,
+    workspace_dir: Path,
+    payload: dict[str, object] | None,
+) -> list[str]:
+    written_files: list[str] = []
+    for item in _payload_dict_list(payload, "workspace_files") or []:
+        relative_path = item.get("path")
+        content = item.get("content")
+        if not isinstance(relative_path, str) or not isinstance(content, str):
+            continue
+        target_path = _safe_workspace_path(workspace_dir, relative_path)
+        if target_path is None:
+            continue
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(content, encoding="utf-8")
+        written_files.append(Path(relative_path).as_posix())
+    return written_files
+
+
 def _build_thesis_markdown(
     *,
     title: str,
@@ -351,7 +400,6 @@ class SupervisorOrchestrator:
                 "- python -m pytest -q",
             ]
         )
-        artifact_paths.implementation_plan.write_text(implementation_plan + "\n", encoding="utf-8")
 
         coder_completion = try_provider(
             "coder",
@@ -360,13 +408,21 @@ class SupervisorOrchestrator:
             "run_commands, test_commands, known_limitations。",
         )
         coder_payload = _extract_json_payload(coder_completion)
+        workspace_written_files = _write_workspace_files_from_payload(
+            workspace_dir=paths.workspace_dir,
+            payload=coder_payload,
+        )
+        implementation_plan_text = _payload_string(coder_payload, "implementation_plan_markdown") or implementation_plan
+        artifact_paths.implementation_plan.write_text(implementation_plan_text + "\n", encoding="utf-8")
         coder_summary = (
             _payload_string(coder_payload, "summary")
             or coder_completion
             or provider_notes.get("coder")
             or "generated runnable scaffold and delivery docs"
         )
-        coder_generated_files = _payload_string_list(coder_payload, "generated_files") or ["README.md"]
+        coder_generated_files = _payload_string_list(coder_payload, "generated_files") or (
+            workspace_written_files or ["README.md"]
+        )
         coder_chosen_stack = _payload_string(coder_payload, "chosen_stack") or plan.stack_policy
         coder_run_commands = _payload_string_list(coder_payload, "run_commands") or ["python -m pytest -q"]
         coder_test_commands = _payload_string_list(coder_payload, "test_commands") or ["python -m pytest -q"]

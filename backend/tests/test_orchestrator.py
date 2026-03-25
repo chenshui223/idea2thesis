@@ -344,3 +344,162 @@ def test_provider_malformed_structured_output_falls_back_to_deterministic_fields
     ]
     assert code_summary["generated_files"] == ["README.md"]
     assert "图书管理系统 面向本地单用户毕业设计场景" in thesis_text
+
+
+def test_provider_coder_payload_writes_workspace_files_and_plan(tmp_path: Path) -> None:
+    orchestrator = SupervisorOrchestrator(
+        provider_factory=lambda config: PromptRouterProvider(
+            {
+                "毕业设计指导老师 agent": """
+                {
+                  "summary": "advisor ok",
+                  "recommended_stack": "python-data-plus"
+                }
+                """,
+                "你是 coder agent": """
+                {
+                  "summary": "coder wrote files",
+                  "generated_files": ["README.md", "src/pipeline.py", "docs/usage.md"],
+                  "chosen_stack": "python-data-plus",
+                  "run_commands": ["python src/pipeline.py"],
+                  "test_commands": ["pytest -q"],
+                  "known_limitations": ["需要补充真实样本"],
+                  "implementation_plan_markdown": "# Custom Plan\\n\\n## Steps\\n- ingest\\n- analyze\\n",
+                  "workspace_files": [
+                    {
+                      "path": "README.md",
+                      "content": "# Provider Workspace\\n\\nRun `python src/pipeline.py`\\n"
+                    },
+                    {
+                      "path": "src/pipeline.py",
+                      "content": "def main():\\n    print('provider generated')\\n\\n\\nif __name__ == '__main__':\\n    main()\\n"
+                    },
+                    {
+                      "path": "docs/usage.md",
+                      "content": "# Usage\\n\\nExecute the generated pipeline locally.\\n"
+                    }
+                  ]
+                }
+                """,
+                "你是 writer agent": """
+                {
+                  "summary": "writer ok",
+                  "abstract": "生成文档内容。"
+                }
+                """,
+            }
+        )
+    )
+    brief = sample_brief(title="图书管理系统")
+    paths = seeded_job_paths(tmp_path, "job-7")
+    executor = LocalCommandExecutor(paths.workspace_dir)
+
+    snapshot = orchestrator.run_job(
+        "job-7",
+        brief,
+        paths,
+        executor,
+        provider_configs={
+            "advisor": AgentProviderConfig(
+                role="advisor",
+                api_key="advisor-key",
+                base_url="https://example.com/v1",
+                model="gpt-advisor",
+            ),
+            "coder": AgentProviderConfig(
+                role="coder",
+                api_key="coder-key",
+                base_url="https://example.com/v1",
+                model="gpt-coder",
+            ),
+            "writer": AgentProviderConfig(
+                role="writer",
+                api_key="writer-key",
+                base_url="https://example.com/v1",
+                model="gpt-writer",
+            ),
+        },
+    )
+
+    code_summary = artifact_json(paths.artifacts_dir / "agent" / "coder" / "code_summary.json")
+    implementation_plan = artifact_markdown(paths.artifacts_dir / "agent" / "coder" / "implementation_plan.md")
+    readme_text = artifact_markdown(paths.workspace_dir / "README.md")
+    pipeline_text = artifact_markdown(paths.workspace_dir / "src" / "pipeline.py")
+    usage_text = artifact_markdown(paths.workspace_dir / "docs" / "usage.md")
+
+    assert snapshot.status == "completed"
+    assert code_summary["summary"] == "coder wrote files"
+    assert code_summary["generated_files"] == ["README.md", "src/pipeline.py", "docs/usage.md"]
+    assert implementation_plan.startswith("# Custom Plan")
+    assert readme_text.startswith("# Provider Workspace")
+    assert "provider generated" in pipeline_text
+    assert "Execute the generated pipeline locally." in usage_text
+
+
+def test_provider_workspace_file_generation_blocks_path_escape(tmp_path: Path) -> None:
+    orchestrator = SupervisorOrchestrator(
+        provider_factory=lambda config: PromptRouterProvider(
+            {
+                "毕业设计指导老师 agent": """
+                {
+                  "summary": "advisor ok"
+                }
+                """,
+                "你是 coder agent": """
+                {
+                  "summary": "coder attempted escape",
+                  "generated_files": ["README.md"],
+                  "workspace_files": [
+                    {
+                      "path": "../outside.txt",
+                      "content": "escaped"
+                    }
+                  ]
+                }
+                """,
+                "你是 writer agent": """
+                {
+                  "summary": "writer ok",
+                  "abstract": "生成文档内容。"
+                }
+                """,
+            }
+        )
+    )
+    brief = sample_brief(title="图书管理系统")
+    paths = seeded_job_paths(tmp_path, "job-8")
+    executor = LocalCommandExecutor(paths.workspace_dir)
+
+    snapshot = orchestrator.run_job(
+        "job-8",
+        brief,
+        paths,
+        executor,
+        provider_configs={
+            "advisor": AgentProviderConfig(
+                role="advisor",
+                api_key="advisor-key",
+                base_url="https://example.com/v1",
+                model="gpt-advisor",
+            ),
+            "coder": AgentProviderConfig(
+                role="coder",
+                api_key="coder-key",
+                base_url="https://example.com/v1",
+                model="gpt-coder",
+            ),
+            "writer": AgentProviderConfig(
+                role="writer",
+                api_key="writer-key",
+                base_url="https://example.com/v1",
+                model="gpt-writer",
+            ),
+        },
+    )
+
+    code_summary = artifact_json(paths.artifacts_dir / "agent" / "coder" / "code_summary.json")
+
+    assert snapshot.status == "completed"
+    assert not (paths.root_dir / "outside.txt").exists()
+    assert code_summary["generated_files"] == ["README.md"]
+    assert "deterministic scaffold" in code_summary["known_limitations"][0]
