@@ -55,6 +55,20 @@ npm run build
 npm run dev
 ```
 
+## One-Command Bootstrap
+
+To install both backend and frontend dependencies in one step:
+
+```bash
+bash scripts/bootstrap.sh
+```
+
+To preview the commands without installing anything:
+
+```bash
+bash scripts/bootstrap.sh --dry-run
+```
+
 ## Start Both Services
 
 After backend and frontend dependencies are installed, start both services with one command:
