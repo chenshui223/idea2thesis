@@ -16,6 +16,7 @@ type SettingsFormProps = {
   onBaseUrlChange: (value: string) => void;
   onModelChange: (value: string) => void;
   onThesisCoverChange: (patch: Partial<ThesisCoverFormValue>) => void;
+  onResetThesisCover: () => void;
 };
 
 export function SettingsForm(props: SettingsFormProps) {
@@ -47,67 +48,72 @@ export function SettingsForm(props: SettingsFormProps) {
           onChange={(event) => props.onModelChange(event.target.value)}
         />
       </label>
-      <h3>Thesis Cover</h3>
-      <label>
-        School
-        <input
-          aria-label="School"
-          value={props.thesisCover.school}
-          onChange={(event) =>
-            props.onThesisCoverChange({ school: event.target.value })
-          }
-        />
-      </label>
-      <label>
-        Department
-        <input
-          aria-label="Department"
-          value={props.thesisCover.department}
-          onChange={(event) =>
-            props.onThesisCoverChange({ department: event.target.value })
-          }
-        />
-      </label>
-      <label>
-        Major
-        <input
-          aria-label="Major"
-          value={props.thesisCover.major}
-          onChange={(event) =>
-            props.onThesisCoverChange({ major: event.target.value })
-          }
-        />
-      </label>
-      <label>
-        Student Name
-        <input
-          aria-label="Student Name"
-          value={props.thesisCover.studentName}
-          onChange={(event) =>
-            props.onThesisCoverChange({ studentName: event.target.value })
-          }
-        />
-      </label>
-      <label>
-        Student ID
-        <input
-          aria-label="Student ID"
-          value={props.thesisCover.studentId}
-          onChange={(event) =>
-            props.onThesisCoverChange({ studentId: event.target.value })
-          }
-        />
-      </label>
-      <label>
-        Advisor
-        <input
-          aria-label="Advisor"
-          value={props.thesisCover.advisor}
-          onChange={(event) =>
-            props.onThesisCoverChange({ advisor: event.target.value })
-          }
-        />
-      </label>
+      <section aria-labelledby="thesis-cover-heading">
+        <h3 id="thesis-cover-heading">Thesis Cover</h3>
+        <button type="button" onClick={props.onResetThesisCover}>
+          Reset Thesis Cover
+        </button>
+        <label>
+          School
+          <input
+            aria-label="School"
+            value={props.thesisCover.school}
+            onChange={(event) =>
+              props.onThesisCoverChange({ school: event.target.value })
+            }
+          />
+        </label>
+        <label>
+          Department
+          <input
+            aria-label="Department"
+            value={props.thesisCover.department}
+            onChange={(event) =>
+              props.onThesisCoverChange({ department: event.target.value })
+            }
+          />
+        </label>
+        <label>
+          Major
+          <input
+            aria-label="Major"
+            value={props.thesisCover.major}
+            onChange={(event) =>
+              props.onThesisCoverChange({ major: event.target.value })
+            }
+          />
+        </label>
+        <label>
+          Student Name
+          <input
+            aria-label="Student Name"
+            value={props.thesisCover.studentName}
+            onChange={(event) =>
+              props.onThesisCoverChange({ studentName: event.target.value })
+            }
+          />
+        </label>
+        <label>
+          Student ID
+          <input
+            aria-label="Student ID"
+            value={props.thesisCover.studentId}
+            onChange={(event) =>
+              props.onThesisCoverChange({ studentId: event.target.value })
+            }
+          />
+        </label>
+        <label>
+          Advisor
+          <input
+            aria-label="Advisor"
+            value={props.thesisCover.advisor}
+            onChange={(event) =>
+              props.onThesisCoverChange({ advisor: event.target.value })
+            }
+          />
+        </label>
+      </section>
     </section>
   );
 }

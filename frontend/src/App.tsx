@@ -53,6 +53,14 @@ const emptySnapshot: JobSnapshot = {
 
 const SETTINGS_CACHE_KEY = "idea2thesis.settings.cache";
 const HISTORY_QUERY_KEY = "idea2thesis.history.query";
+const DEFAULT_THESIS_COVER: GlobalSettings["thesisCover"] = {
+  school: "待填写学校",
+  department: "待填写学院",
+  major: "计算机软件相关专业",
+  studentName: "待填写",
+  studentId: "待填写",
+  advisor: "待填写"
+};
 
 function buildDefaultAgentSettings(): Record<AgentRole, AgentSettings> {
   return Object.fromEntries(
@@ -736,6 +744,12 @@ export default function App() {
                 ...patch
               }
             },
+            true
+          )
+        }
+        onResetThesisCover={() =>
+          handleGlobalSettingsChange(
+            { thesisCover: { ...DEFAULT_THESIS_COVER } },
             true
           )
         }

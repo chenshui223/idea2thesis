@@ -2,6 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { render, screen, waitFor, within } from "@testing-library/react";
 
 import App from "./App";
+import { AGENT_ROLES } from "./types";
 
 function mockResponse(body: unknown, ok = true, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -28,6 +29,19 @@ function mockSettingsResponse() {
     agents: {},
     api_key_configured: false
   });
+}
+
+function buildDefaultPersistedAgents() {
+  return Object.fromEntries(
+    AGENT_ROLES.map((role) => [
+      role,
+      {
+        use_global: true,
+        base_url: "",
+        model: ""
+      }
+    ])
+  );
 }
 
 describe("App history workbench", () => {
@@ -111,6 +125,72 @@ describe("App history workbench", () => {
       "true"
     );
     expect(screen.getByText("Current job: job-1")).toBeInTheDocument();
+  });
+
+  test("thesis cover settings can reset to default placeholders", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockResolvedValueOnce(mockSettingsResponse());
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        total: 0,
+        items: []
+      })
+    );
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        schema_version: "v1alpha1",
+        global: {
+          base_url: "https://api.example.com/v1",
+          model: "gpt-4.1-mini",
+          thesis_cover: {
+            school: "待填写学校",
+            department: "待填写学院",
+            major: "计算机软件相关专业",
+            student_name: "待填写",
+            student_id: "待填写",
+            advisor: "待填写"
+          }
+        },
+        agents: {},
+        api_key_configured: false
+      })
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Thesis Cover" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Reset Thesis Cover" }));
+
+    expect(screen.getByLabelText("School")).toHaveValue("待填写学校");
+    expect(screen.getByLabelText("Department")).toHaveValue("待填写学院");
+    expect(screen.getByLabelText("Major")).toHaveValue("计算机软件相关专业");
+    expect(screen.getByLabelText("Student Name")).toHaveValue("待填写");
+    expect(screen.getByLabelText("Student ID")).toHaveValue("待填写");
+    expect(screen.getByLabelText("Advisor")).toHaveValue("待填写");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/settings",
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({
+          schema_version: "v1alpha1",
+          global: {
+            base_url: "https://api.example.com/v1",
+            model: "gpt-4.1-mini",
+            thesis_cover: {
+              school: "待填写学校",
+              department: "待填写学院",
+              major: "计算机软件相关专业",
+              student_name: "待填写",
+              student_id: "待填写",
+              advisor: "待填写"
+            }
+          },
+          agents: buildDefaultPersistedAgents()
+        })
+      })
+    );
   });
 
   test("selecting a row updates right-side detail panel", async () => {
