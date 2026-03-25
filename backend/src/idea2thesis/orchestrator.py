@@ -215,6 +215,16 @@ def _build_thesis_docx(
     normal_font.size = Pt(12)
     normal_style._element.rPr.rFonts.set(qn("w:eastAsia"), "宋体")
 
+    cover_type_paragraph = document.add_paragraph()
+    cover_type_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    cover_type_run = cover_type_paragraph.add_run("本科毕业设计（论文）")
+    cover_type_run.bold = True
+    cover_type_run.font.name = "Times New Roman"
+    cover_type_run.font.size = Pt(18)
+    cover_type_run._element.rPr.rFonts.set(qn("w:eastAsia"), "黑体")
+
+    document.add_paragraph()
+
     title_paragraph = document.add_paragraph()
     title_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
     title_run = title_paragraph.add_run(title)
@@ -222,6 +232,44 @@ def _build_thesis_docx(
     title_run.font.name = "Times New Roman"
     title_run.font.size = Pt(16)
     title_run._element.rPr.rFonts.set(qn("w:eastAsia"), "黑体")
+
+    document.add_paragraph()
+
+    cover_fields = [
+        "学生姓名：待填写",
+        "学号：待填写",
+        "专业：计算机软件相关专业",
+        "指导教师：待填写",
+        f"题目：{title}",
+    ]
+    for field in cover_fields:
+        field_paragraph = document.add_paragraph()
+        field_paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        field_run = field_paragraph.add_run(field)
+        field_run.font.name = "Times New Roman"
+        field_run.font.size = Pt(12)
+        field_run._element.rPr.rFonts.set(qn("w:eastAsia"), "宋体")
+
+    document.add_page_break()
+
+    toc_title_paragraph = document.add_paragraph()
+    toc_title_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    toc_title_run = toc_title_paragraph.add_run("目录")
+    toc_title_run.bold = True
+    toc_title_run.font.name = "Times New Roman"
+    toc_title_run.font.size = Pt(16)
+    toc_title_run._element.rPr.rFonts.set(qn("w:eastAsia"), "黑体")
+
+    toc_note_paragraph = document.add_paragraph()
+    toc_note_paragraph.paragraph_format.space_before = Pt(12)
+    toc_note_paragraph.paragraph_format.space_after = Pt(12)
+    toc_note_run = toc_note_paragraph.add_run("目录待在 Word 中更新。")
+    toc_note_run.italic = True
+    toc_note_run.font.name = "Times New Roman"
+    toc_note_run.font.size = Pt(11)
+    toc_note_run._element.rPr.rFonts.set(qn("w:eastAsia"), "宋体")
+
+    document.add_page_break()
 
     sections = [
         ("摘要", abstract),

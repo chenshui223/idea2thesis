@@ -111,6 +111,11 @@ def test_run_job_persists_real_stage_artifacts_and_manifest(tmp_path: Path) -> N
         paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()
     )
     assert "图书管理系统" in paragraphs
+    assert "本科毕业设计（论文）" in paragraphs
+    assert "学生姓名：待填写" in paragraphs
+    assert "学号：待填写" in paragraphs
+    assert "目录" in paragraphs
+    assert "目录待在 Word 中更新" in paragraphs
     title_paragraph = next(
         paragraph for paragraph in document.paragraphs if paragraph.text.strip() == "图书管理系统 Thesis Draft"
     )
