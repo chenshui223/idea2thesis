@@ -5,6 +5,9 @@ type JobDetailPanelProps = {
   selectedHistoryItem: HistoryListItem | null;
   onRerun: () => void;
   onDelete: () => void;
+  onDownloadWorkspaceArchive: () => void;
+  workspaceArchiveBusy: boolean;
+  workspaceArchiveError: string;
 };
 
 export function JobDetailPanel(props: JobDetailPanelProps) {
@@ -30,6 +33,14 @@ export function JobDetailPanel(props: JobDetailPanelProps) {
           <p>Source job: {job.source_job_id ?? "none"}</p>
           <p>Runtime preset model: {job.runtime_preset.global.model}</p>
           <p>Runtime preset base URL: {job.runtime_preset.global.base_url}</p>
+          {props.workspaceArchiveError ? <p>{props.workspaceArchiveError}</p> : null}
+          <button
+            type="button"
+            onClick={props.onDownloadWorkspaceArchive}
+            disabled={props.workspaceArchiveBusy}
+          >
+            Download Workspace ZIP
+          </button>
           <button type="button" onClick={props.onRerun}>
             Rerun
           </button>

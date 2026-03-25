@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   deleteJob,
   downloadArtifact,
+  downloadWorkspaceArchive,
   fetchArtifactContent,
   fetchJobDetail,
   fetchJobEvents,
@@ -229,6 +230,17 @@ function isDeleted(detail: JobDetail) {
   return detail.status === "deleted" || Boolean(detail.deleted_at);
 }
 
+function triggerBlobDownload(blob: Blob, fileName: string) {
+  const objectUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(objectUrl);
+}
+
 function buildSelectedSnapshot(detail: JobDetail): JobSnapshot {
   return {
     schema_version: detail.schema_version,
@@ -271,6 +283,8 @@ export default function App() {
   const [eventsError, setEventsError] = useState("");
   const [rerunError, setRerunError] = useState("");
   const [deleteError, setDeleteError] = useState("");
+  const [workspaceArchiveError, setWorkspaceArchiveError] = useState("");
+  const [workspaceArchiveBusy, setWorkspaceArchiveBusy] = useState(false);
   const [artifactPreviewTitle, setArtifactPreviewTitle] = useState("");
   const [artifactPreviewFileName, setArtifactPreviewFileName] = useState("");
   const [artifactPreviewKind, setArtifactPreviewKind] = useState("");
@@ -684,20 +698,36 @@ export default function App() {
     setArtifactActionError("");
     try {
       const blob = await downloadArtifact(currentJobId, selectedArtifact);
-      const objectUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = selectedArtifact.path.split("/").pop() ?? "artifact";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(objectUrl);
+      triggerBlobDownload(
+        blob,
+        selectedArtifact.path.split("/").pop() ?? "artifact"
+      );
     } catch (error) {
       setArtifactActionError(
         error instanceof Error ? error.message : "failed to download artifact"
       );
     } finally {
       setArtifactActionBusy(false);
+    }
+  };
+
+  const handleDownloadWorkspaceArchive = async () => {
+    if (!currentJobId) {
+      return;
+    }
+    setWorkspaceArchiveBusy(true);
+    setWorkspaceArchiveError("");
+    try {
+      const blob = await downloadWorkspaceArchive(currentJobId);
+      triggerBlobDownload(blob, `${currentJobId}-workspace.zip`);
+    } catch (error) {
+      setWorkspaceArchiveError(
+        error instanceof Error
+          ? error.message
+          : "failed to download workspace archive"
+      );
+    } finally {
+      setWorkspaceArchiveBusy(false);
     }
   };
 
@@ -797,6 +827,11 @@ export default function App() {
           <JobDetailPanel
             job={selectedJob}
             selectedHistoryItem={selectedHistoryItem}
+            workspaceArchiveBusy={workspaceArchiveBusy}
+            workspaceArchiveError={workspaceArchiveError}
+            onDownloadWorkspaceArchive={() => {
+              void handleDownloadWorkspaceArchive();
+            }}
             onRerun={() => {
               void handleRerun();
             }}

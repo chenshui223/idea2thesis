@@ -251,6 +251,14 @@ export async function downloadArtifact(
   return response.blob();
 }
 
+export async function downloadWorkspaceArchive(jobId: string): Promise<Blob> {
+  const response = await fetch(`/jobs/${jobId}/workspace/archive`);
+  if (!response.ok) {
+    throw new Error("failed to download workspace archive");
+  }
+  return response.blob();
+}
+
 export async function openArtifactInFolder(
   jobId: string,
   artifact: ArtifactRef

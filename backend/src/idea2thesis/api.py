@@ -96,6 +96,18 @@ def create_router(service: ApplicationService) -> APIRouter:
         except KeyError:
             raise HTTPException(status_code=404, detail="artifact not found")
 
+    @router.get("/jobs/{job_id}/workspace/archive")
+    def download_workspace_archive(job_id: str) -> FileResponse:
+        try:
+            archive_path = service.get_workspace_archive_path(job_id)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="job not found")
+        return FileResponse(
+            path=archive_path,
+            filename=archive_path.name,
+            media_type="application/zip",
+        )
+
     @router.post("/jobs/{job_id}/rerun", status_code=201)
     async def rerun_job(job_id: str, config: str = Form(...)) -> dict[str, object]:
         try:

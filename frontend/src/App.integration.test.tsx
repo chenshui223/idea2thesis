@@ -1081,4 +1081,109 @@ describe("App history workbench", () => {
       })
     );
   });
+
+  test("job detail can download the generated workspace archive", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockResolvedValueOnce(mockSettingsResponse());
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        total: 1,
+        items: [
+          {
+            job_id: "job-1",
+            brief_title: "Thesis Job",
+            status: "completed",
+            stage: "completed",
+            final_disposition: "completed",
+            updated_at: "2026-03-25T00:00:00Z",
+            created_at: "2026-03-25T00:00:00Z"
+          }
+        ]
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        job_id: "job-1",
+        brief_title: "Thesis Job",
+        source_job_id: null,
+        status: "completed",
+        stage: "completed",
+        final_disposition: "completed",
+        validation_state: "completed",
+        workspace_path: "/jobs/job-1/workspace",
+        input_file_path: "/jobs/job-1/input/brief.docx",
+        error_message: "",
+        deleted_at: null,
+        created_at: "2026-03-25T00:00:00Z",
+        updated_at: "2026-03-25T00:02:00Z",
+        agents: [],
+        artifacts: [],
+        runtime_preset: {
+          global: {
+            base_url: "https://api.example.com/v1",
+            model: "gpt-4.1-mini"
+          },
+          agents: {}
+        }
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        items: []
+      })
+    );
+    const downloadBlob = new Blob(["workspace zip"], { type: "application/zip" });
+    fetchMock.mockResolvedValueOnce(
+      new Response(downloadBlob, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/zip"
+        }
+      })
+    );
+
+    const createObjectURL = vi.fn(() => "blob:workspace");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(window.URL, "createObjectURL", {
+      value: createObjectURL,
+      configurable: true
+    });
+    Object.defineProperty(window.URL, "revokeObjectURL", {
+      value: revokeObjectURL,
+      configurable: true
+    });
+
+    const anchorClick = vi.fn();
+    const anchorRemove = vi.fn();
+    const originalCreateElement = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tagName: string) => {
+      if (tagName.toLowerCase() === "a") {
+        const anchor = originalCreateElement("a");
+        Object.defineProperty(anchor, "click", {
+          value: anchorClick
+        });
+        Object.defineProperty(anchor, "remove", {
+          value: anchorRemove
+        });
+        return anchor;
+      }
+      return originalCreateElement(tagName);
+    });
+
+    render(<App />);
+
+    await screen.findByText("Current job: job-1");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Download Workspace ZIP" })
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith("/jobs/job-1/workspace/archive");
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(anchorClick).toHaveBeenCalled();
+    expect(anchorRemove).toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:workspace");
+  });
 });

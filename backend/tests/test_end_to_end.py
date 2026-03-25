@@ -1,5 +1,6 @@
 from pathlib import Path
 from unittest.mock import patch
+from zipfile import ZipFile
 
 from docx import Document
 from fastapi.testclient import TestClient
@@ -761,6 +762,74 @@ def test_artifact_download_endpoint_returns_generated_thesis_docx(tmp_path: Path
     assert response.status_code == 200
     assert response.content.startswith(b"PK")
     assert "thesis_draft.docx" in response.headers["content-disposition"]
+
+
+def test_workspace_archive_endpoint_returns_zip_of_generated_workspace(
+    tmp_path: Path,
+) -> None:
+    file_path = tmp_path / "brief.docx"
+    document = Document()
+    document.add_heading("图书管理系统", level=1)
+    document.add_paragraph("功能要求：用户登录、图书查询、借阅管理")
+    document.save(file_path)
+
+    settings = Settings(
+        jobs_dir=tmp_path / "jobs",
+        api_key="",
+        base_url="https://example.com/v1",
+        model="gpt-test",
+        settings_file=tmp_path / ".idea2thesis" / "settings.json",
+        database_path=tmp_path / ".idea2thesis" / "jobs.db",
+        secret_key_path=tmp_path / ".idea2thesis" / "secret.key",
+        secret_dir=tmp_path / ".idea2thesis" / "job-secrets",
+    )
+    client = TestClient(create_app(settings))
+    with file_path.open("rb") as handle:
+        created = client.post(
+            "/jobs",
+            files={
+                "file": (
+                    "brief.docx",
+                    handle.read(),
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            },
+            data={
+                "config": """
+                {
+                  "schema_version": "v1alpha1",
+                  "global": {
+                    "api_key": "runtime-key",
+                    "base_url": "https://example.com/v1",
+                    "model": "gpt-test"
+                  },
+                  "agents": {}
+                }
+                """
+            },
+        )
+    assert created.status_code == 201
+    job_id = created.json()["job_id"]
+
+    worker = AsyncJobWorker(settings)
+    assert worker.run_once() is True
+
+    response = client.get(f"/jobs/{job_id}/workspace/archive")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+    assert f"{job_id}-workspace.zip" in response.headers["content-disposition"]
+
+    archive_path = tmp_path / "workspace.zip"
+    archive_path.write_bytes(response.content)
+
+    with ZipFile(archive_path) as archive:
+        names = archive.namelist()
+
+    assert "workspace/README.md" in names
+    assert all(".git/" not in name for name in names)
+    assert all(".idea2thesis-logs/" not in name for name in names)
+    assert all("/artifacts/" not in name for name in names)
 
 
 def test_persisted_thesis_cover_settings_are_written_into_generated_docx(

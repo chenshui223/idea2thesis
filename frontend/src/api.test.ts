@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   downloadArtifact,
+  downloadWorkspaceArchive,
   fetchJob,
   fetchSettings,
   openArtifactInFolder,
@@ -174,5 +175,19 @@ describe("api helpers", () => {
       })
     );
     expect(result.ok).toBe(true);
+  });
+
+  it("downloadWorkspaceArchive fetches the workspace archive endpoint and returns a blob", async () => {
+    const blob = new Blob(["zip body"], { type: "application/zip" });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: async () => blob
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await downloadWorkspaceArchive("job-1");
+
+    expect(fetchMock).toHaveBeenCalledWith("/jobs/job-1/workspace/archive");
+    expect(result).toBe(blob);
   });
 });

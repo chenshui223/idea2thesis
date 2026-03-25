@@ -118,6 +118,7 @@ The web app now includes a persistent history workbench:
 - all jobs remain visible by default, including `deleted`
 - selecting a row loads durable job detail plus the ordered event timeline
 - only the currently selected active job is polled
+- completed or retained jobs can export the generated `workspace/` as a ZIP from the detail panel
 
 ### Rerun
 
@@ -141,6 +142,15 @@ Delete is soft delete only:
 - deleting a job changes its durable status to `deleted`
 - deleted jobs remain visible in the history list and detail panel
 - workspaces, artifacts, and uploaded files are kept on disk in v1
+
+### Workspace Export
+
+The detail panel can download a `workspace` ZIP bundle for a selected job.
+
+The ZIP intentionally excludes internal runtime directories such as:
+
+- `workspace/.git/`
+- `workspace/.idea2thesis-logs/`
 
 ## Verification Evidence
 

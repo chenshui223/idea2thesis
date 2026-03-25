@@ -186,3 +186,11 @@ def test_artifact_open_endpoint_returns_not_found_for_missing_job(tmp_path: Path
         params={"path": "/tmp/missing.txt"},
     )
     assert response.status_code == 404
+
+
+def test_workspace_archive_endpoint_returns_not_found_for_missing_job(
+    tmp_path: Path,
+) -> None:
+    client = build_client(tmp_path)
+    response = client.get("/jobs/job-1/workspace/archive")
+    assert response.status_code == 404

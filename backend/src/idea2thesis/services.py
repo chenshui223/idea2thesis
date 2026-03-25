@@ -5,6 +5,7 @@ import platform
 import subprocess
 from pathlib import Path
 from uuid import uuid4
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from pydantic import ValidationError
 
@@ -185,6 +186,30 @@ class ApplicationService:
 
     def get_artifact_download_path(self, job_id: str, path: str) -> Path:
         return self._resolve_registered_artifact_path(job_id, path)
+
+    def get_workspace_archive_path(self, job_id: str) -> Path:
+        detail = self.get_job(job_id)
+        if detail is None:
+            raise KeyError(job_id)
+
+        workspace_dir = Path(detail.workspace_path).resolve()
+        if not workspace_dir.is_dir():
+            raise KeyError(job_id)
+
+        job_root = workspace_dir.parent
+        export_dir = job_root / "exports"
+        export_dir.mkdir(parents=True, exist_ok=True)
+
+        archive_path = export_dir / f"{job_id}-workspace.zip"
+        excluded_roots = {".git", ".idea2thesis-logs"}
+        with ZipFile(archive_path, "w", compression=ZIP_DEFLATED) as archive:
+            for candidate in sorted(workspace_dir.rglob("*")):
+                relative_path = candidate.relative_to(workspace_dir)
+                if relative_path.parts and relative_path.parts[0] in excluded_roots:
+                    continue
+                if candidate.is_file():
+                    archive.write(candidate, Path("workspace") / relative_path)
+        return archive_path
 
     def open_artifact_in_file_manager(self, job_id: str, path: str) -> dict[str, object]:
         target_path = self._resolve_registered_artifact_path(job_id, path)
