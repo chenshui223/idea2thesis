@@ -32,14 +32,18 @@ function formatArtifactPath(path: string) {
 }
 
 export function ArtifactList(props: ArtifactListProps) {
-  const systemArtifacts = props.artifacts
-    .filter((artifact) => artifact.kind !== "workspace_file")
-    .sort((left, right) => left.path.localeCompare(right.path));
   const generatedCode = props.artifacts
     .filter((artifact) => artifact.kind === "workspace_file" && !isDocPath(artifact.path))
     .sort((left, right) => left.path.localeCompare(right.path));
   const generatedDocs = props.artifacts
-    .filter((artifact) => artifact.kind === "workspace_file" && isDocPath(artifact.path))
+    .filter((artifact) => isDocPath(artifact.path))
+    .sort((left, right) => left.path.localeCompare(right.path));
+  const systemArtifacts = props.artifacts
+    .filter(
+      (artifact) =>
+        !(artifact.kind === "workspace_file" && !isDocPath(artifact.path)) &&
+        !isDocPath(artifact.path)
+    )
     .sort((left, right) => left.path.localeCompare(right.path));
 
   const sections = [

@@ -666,7 +666,8 @@ describe("App history workbench", () => {
           { kind: "job_manifest", path: "/jobs/job-1/artifacts/final/job_manifest.json" },
           { kind: "code_eval", path: "/jobs/job-1/artifacts/verification/code_eval.json" },
           { kind: "workspace_file", path: "/jobs/job-1/workspace/src/pipeline.py" },
-          { kind: "workspace_file", path: "/jobs/job-1/workspace/docs/答辩提纲.md" }
+          { kind: "workspace_file", path: "/jobs/job-1/workspace/docs/答辩提纲.md" },
+          { kind: "thesis_draft_docx", path: "/jobs/job-1/artifacts/agent/writer/thesis_draft.docx" }
         ],
         runtime_preset: {
           global: {
@@ -746,6 +747,12 @@ describe("App history workbench", () => {
         (element.textContent?.includes("workspace/docs/答辩提纲.md") ?? false)
       )
     ).toBeInTheDocument();
+    expect(
+      within(artifactsSection as HTMLElement).getByText((_, element) =>
+        element?.tagName.toLowerCase() === "li" &&
+        (element.textContent?.includes("artifacts/agent/writer/thesis_draft.docx") ?? false)
+      )
+    ).toBeInTheDocument();
     const generatedCodeSection = within(artifactsSection as HTMLElement)
       .getByRole("heading", { name: "Generated Code" })
       .closest("section");
@@ -764,6 +771,12 @@ describe("App history workbench", () => {
       within(generatedDocsSection as HTMLElement).getByText((_, element) =>
         element?.tagName.toLowerCase() === "li" &&
         (element.textContent?.includes("workspace/docs/答辩提纲.md") ?? false)
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(generatedDocsSection as HTMLElement).getByText((_, element) =>
+        element?.tagName.toLowerCase() === "li" &&
+        (element.textContent?.includes("artifacts/agent/writer/thesis_draft.docx") ?? false)
       )
     ).toBeInTheDocument();
     expect(

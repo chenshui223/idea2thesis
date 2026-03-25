@@ -20,6 +20,7 @@ class ExecutionArtifactPaths:
     implementation_plan: Path
     code_summary: Path
     thesis_draft: Path
+    thesis_draft_docx: Path
     design_report: Path
     requirements_review: Path
     engineering_review: Path
@@ -36,6 +37,7 @@ def build_execution_artifact_paths(paths: JobPaths) -> ExecutionArtifactPaths:
         implementation_plan=base / "agent" / "coder" / "implementation_plan.md",
         code_summary=base / "agent" / "coder" / "code_summary.json",
         thesis_draft=base / "agent" / "writer" / "thesis_draft.md",
+        thesis_draft_docx=base / "agent" / "writer" / "thesis_draft.docx",
         design_report=base / "agent" / "writer" / "design_report.md",
         requirements_review=base / "agent" / "review" / "requirements_review.json",
         engineering_review=base / "agent" / "review" / "engineering_review.json",

@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+from docx import Document
+
 from idea2thesis.contracts import ParsedBrief
 from idea2thesis.executor import LocalCommandExecutor
 from idea2thesis.orchestrator import SupervisorOrchestrator
@@ -100,6 +102,13 @@ def test_run_job_persists_real_stage_artifacts_and_manifest(tmp_path: Path) -> N
     assert artifact_json(paths.artifacts_dir / "agent" / "advisor" / "advisor_plan.json")["agent_role"] == "advisor"
     assert artifact_json(paths.artifacts_dir / "agent" / "coder" / "code_summary.json")["agent_role"] == "coder"
     assert artifact_markdown(paths.artifacts_dir / "agent" / "writer" / "thesis_draft.md").startswith("#")
+    thesis_docx = paths.artifacts_dir / "agent" / "writer" / "thesis_draft.docx"
+    assert thesis_docx.exists()
+    document = Document(thesis_docx)
+    paragraphs = "\n".join(
+        paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()
+    )
+    assert "图书管理系统" in paragraphs
     assert artifact_json(paths.artifacts_dir / "final" / "job_manifest.json")["final_disposition"] == "completed"
 
 

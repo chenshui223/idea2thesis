@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Callable
 
+from docx import Document
+
 from idea2thesis.agents import build_agent_tasks
 from idea2thesis.contracts import (
     AgentRuntimeOverride,
@@ -184,6 +186,36 @@ def _build_design_report_markdown(
             delivery_notes,
         ]
     )
+
+
+def _build_thesis_docx(
+    *,
+    path: Path,
+    title: str,
+    abstract: str,
+    requirements_analysis: str,
+    system_design: str,
+    implementation_overview: str,
+    testing_validation: str,
+    conclusion: str,
+) -> None:
+    document = Document()
+    document.add_heading(title, level=0)
+    sections = [
+        ("摘要", abstract),
+        ("需求分析", requirements_analysis),
+        ("系统设计", system_design),
+        ("实现概述", implementation_overview),
+        ("测试与验证", testing_validation),
+        ("结论", conclusion),
+    ]
+    for heading, content in sections:
+        document.add_heading(heading, level=1)
+        for paragraph in content.splitlines():
+            stripped = paragraph.strip()
+            if stripped:
+                document.add_paragraph(stripped)
+    document.save(path)
 
 
 class SupervisorOrchestrator:
@@ -477,23 +509,45 @@ class SupervisorOrchestrator:
             "结论",
         ]
         thesis_title = _payload_string(writer_payload, "title") or f"{brief.title} Thesis Draft"
+        thesis_abstract = _payload_string(writer_payload, "abstract") or (
+            provider_notes.get("writer")
+            or f"{brief.title} 面向本地单用户毕业设计场景，提供可部署系统与论文初稿协同生成流程。"
+        )
+        thesis_requirements_analysis = _payload_string(writer_payload, "requirements_analysis") or (
+            f"核心需求包括：{'、'.join(brief.requirements)}。"
+        )
+        thesis_system_design = _payload_string(writer_payload, "system_design") or (
+            "系统采用分层结构，包含认证、业务流程和结果展示模块。"
+        )
+        thesis_implementation_overview = _payload_string(
+            writer_payload, "implementation_overview"
+        ) or f"实现以 {plan.stack_policy} 方案为基础，优先保证本地可运行与结果可验证。"
+        thesis_testing_validation = _payload_string(writer_payload, "testing_validation") or (
+            "当前版本通过本地命令验证核心输出流程。"
+        )
+        thesis_conclusion = _payload_string(writer_payload, "conclusion") or (
+            "该初稿可作为后续细化与人工审校的基础。"
+        )
         thesis_markdown = _build_thesis_markdown(
             title=thesis_title,
-            abstract=_payload_string(writer_payload, "abstract")
-            or provider_notes.get("writer")
-            or f"{brief.title} 面向本地单用户毕业设计场景，提供可部署系统与论文初稿协同生成流程。",
-            requirements_analysis=_payload_string(writer_payload, "requirements_analysis")
-            or f"核心需求包括：{'、'.join(brief.requirements)}。",
-            system_design=_payload_string(writer_payload, "system_design")
-            or "系统采用分层结构，包含认证、业务流程和结果展示模块。",
-            implementation_overview=_payload_string(writer_payload, "implementation_overview")
-            or f"实现以 {plan.stack_policy} 方案为基础，优先保证本地可运行与结果可验证。",
-            testing_validation=_payload_string(writer_payload, "testing_validation")
-            or "当前版本通过本地命令验证核心输出流程。",
-            conclusion=_payload_string(writer_payload, "conclusion")
-            or "该初稿可作为后续细化与人工审校的基础。",
+            abstract=thesis_abstract,
+            requirements_analysis=thesis_requirements_analysis,
+            system_design=thesis_system_design,
+            implementation_overview=thesis_implementation_overview,
+            testing_validation=thesis_testing_validation,
+            conclusion=thesis_conclusion,
         )
         artifact_paths.thesis_draft.write_text(thesis_markdown + "\n", encoding="utf-8")
+        _build_thesis_docx(
+            path=artifact_paths.thesis_draft_docx,
+            title=thesis_title,
+            abstract=thesis_abstract,
+            requirements_analysis=thesis_requirements_analysis,
+            system_design=thesis_system_design,
+            implementation_overview=thesis_implementation_overview,
+            testing_validation=thesis_testing_validation,
+            conclusion=thesis_conclusion,
+        )
         thesis_artifact = ThesisDraftArtifact(
             job_id=job_id,
             agent_role="writer",
@@ -759,6 +813,7 @@ class SupervisorOrchestrator:
                 ArtifactRef(kind="implementation_plan", path=str(artifact_paths.implementation_plan)),
                 ArtifactRef(kind="code_summary", path=str(artifact_paths.code_summary)),
                 ArtifactRef(kind="thesis_draft", path=str(artifact_paths.thesis_draft)),
+                ArtifactRef(kind="thesis_draft_docx", path=str(artifact_paths.thesis_draft_docx)),
                 ArtifactRef(kind="design_report", path=str(artifact_paths.design_report)),
                 ArtifactRef(kind="requirements_review", path=str(artifact_paths.requirements_review)),
                 ArtifactRef(kind="engineering_review", path=str(artifact_paths.engineering_review)),

@@ -33,5 +33,6 @@ def test_job_paths_exposes_agent_and_manifest_artifact_locations(tmp_path: Path)
     assert artifact_paths.advisor_plan == paths.artifacts_dir / "agent" / "advisor" / "advisor_plan.json"
     assert artifact_paths.code_summary == paths.artifacts_dir / "agent" / "coder" / "code_summary.json"
     assert artifact_paths.thesis_draft == paths.artifacts_dir / "agent" / "writer" / "thesis_draft.md"
+    assert artifact_paths.thesis_draft_docx == paths.artifacts_dir / "agent" / "writer" / "thesis_draft.docx"
     assert artifact_paths.code_eval == paths.artifacts_dir / "verification" / "code_eval.json"
     assert artifact_paths.final_manifest == paths.artifacts_dir / "final" / "job_manifest.json"
