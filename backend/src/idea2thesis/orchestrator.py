@@ -408,7 +408,7 @@ class SupervisorOrchestrator:
             "run_commands, test_commands, known_limitations。",
         )
         coder_payload = _extract_json_payload(coder_completion)
-        workspace_written_files = _write_workspace_files_from_payload(
+        coder_workspace_files = _write_workspace_files_from_payload(
             workspace_dir=paths.workspace_dir,
             payload=coder_payload,
         )
@@ -421,7 +421,7 @@ class SupervisorOrchestrator:
             or "generated runnable scaffold and delivery docs"
         )
         coder_generated_files = _payload_string_list(coder_payload, "generated_files") or (
-            workspace_written_files or ["README.md"]
+            coder_workspace_files or ["README.md"]
         )
         coder_chosen_stack = _payload_string(coder_payload, "chosen_stack") or plan.stack_policy
         coder_run_commands = _payload_string_list(coder_payload, "run_commands") or ["python -m pytest -q"]
@@ -464,7 +464,7 @@ class SupervisorOrchestrator:
             "conclusion, design_report。",
         )
         writer_payload = _extract_json_payload(writer_completion)
-        _write_workspace_files_from_payload(
+        writer_workspace_files = _write_workspace_files_from_payload(
             workspace_dir=paths.workspace_dir,
             payload=writer_payload,
         )
@@ -742,6 +742,11 @@ class SupervisorOrchestrator:
             AgentStatus(role="doc_check", status="done", summary=doc_check_artifact.summary),
         ]
 
+        workspace_artifacts = [
+            ArtifactRef(kind="workspace_file", path=str(paths.workspace_dir / relative_path))
+            for relative_path in sorted(set(coder_workspace_files + writer_workspace_files))
+        ]
+
         return JobSnapshot(
             job_id=job_id,
             stage=final_status if final_status != "completed" else "completed",
@@ -749,6 +754,7 @@ class SupervisorOrchestrator:
             agents=agent_statuses,
             artifacts=[
                 ArtifactRef(kind="project_readme", path=str(project_readme)),
+                *workspace_artifacts,
                 ArtifactRef(kind="advisor_plan", path=str(artifact_paths.advisor_plan)),
                 ArtifactRef(kind="implementation_plan", path=str(artifact_paths.implementation_plan)),
                 ArtifactRef(kind="code_summary", path=str(artifact_paths.code_summary)),

@@ -663,7 +663,9 @@ describe("App history workbench", () => {
         ],
         artifacts: [
           { kind: "job_manifest", path: "/jobs/job-1/artifacts/final/job_manifest.json" },
-          { kind: "code_eval", path: "/jobs/job-1/artifacts/verification/code_eval.json" }
+          { kind: "code_eval", path: "/jobs/job-1/artifacts/verification/code_eval.json" },
+          { kind: "workspace_file", path: "/jobs/job-1/workspace/src/pipeline.py" },
+          { kind: "workspace_file", path: "/jobs/job-1/workspace/docs/答辩提纲.md" }
         ],
         runtime_preset: {
           global: {
@@ -707,6 +709,18 @@ describe("App history workbench", () => {
         element?.tagName.toLowerCase() === "li" &&
         (element.textContent?.includes("/jobs/job-1/artifacts/final/job_manifest.json") ??
           false)
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(artifactsSection as HTMLElement).getByText((_, element) =>
+        element?.tagName.toLowerCase() === "li" &&
+        (element.textContent?.includes("/jobs/job-1/workspace/src/pipeline.py") ?? false)
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(artifactsSection as HTMLElement).getByText((_, element) =>
+        element?.tagName.toLowerCase() === "li" &&
+        (element.textContent?.includes("/jobs/job-1/workspace/docs/答辩提纲.md") ?? false)
       )
     ).toBeInTheDocument();
     expect(screen.getByText(/verification_completed/i)).toBeInTheDocument();

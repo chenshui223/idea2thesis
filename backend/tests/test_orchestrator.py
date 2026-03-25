@@ -655,3 +655,87 @@ def test_provider_writer_workspace_file_generation_blocks_path_escape(tmp_path: 
 
     assert snapshot.status == "completed"
     assert not (paths.root_dir / "writer-outside.md").exists()
+
+
+def test_provider_generated_workspace_files_are_listed_as_artifacts(tmp_path: Path) -> None:
+    orchestrator = SupervisorOrchestrator(
+        provider_factory=lambda config: PromptRouterProvider(
+            {
+                "毕业设计指导老师 agent": """
+                {
+                  "summary": "advisor ok"
+                }
+                """,
+                "你是 coder agent": """
+                {
+                  "summary": "coder wrote files",
+                  "generated_files": ["README.md", "src/pipeline.py"],
+                  "workspace_files": [
+                    {
+                      "path": "README.md",
+                      "content": "# Provider Workspace\\n"
+                    },
+                    {
+                      "path": "src/pipeline.py",
+                      "content": "print('provider generated')\\n"
+                    }
+                  ]
+                }
+                """,
+                "你是 writer agent": """
+                {
+                  "summary": "writer published docs",
+                  "abstract": "论文摘要。",
+                  "workspace_files": [
+                    {
+                      "path": "docs/答辩提纲.md",
+                      "content": "# 答辩提纲\\n"
+                    }
+                  ]
+                }
+                """,
+            }
+        )
+    )
+    brief = sample_brief(title="图书管理系统")
+    paths = seeded_job_paths(tmp_path, "job-11")
+    executor = LocalCommandExecutor(paths.workspace_dir)
+
+    snapshot = orchestrator.run_job(
+        "job-11",
+        brief,
+        paths,
+        executor,
+        provider_configs={
+            "advisor": AgentProviderConfig(
+                role="advisor",
+                api_key="advisor-key",
+                base_url="https://example.com/v1",
+                model="gpt-advisor",
+            ),
+            "coder": AgentProviderConfig(
+                role="coder",
+                api_key="coder-key",
+                base_url="https://example.com/v1",
+                model="gpt-coder",
+            ),
+            "writer": AgentProviderConfig(
+                role="writer",
+                api_key="writer-key",
+                base_url="https://example.com/v1",
+                model="gpt-writer",
+            ),
+        },
+    )
+
+    workspace_artifacts = [item for item in snapshot.artifacts if item.kind == "workspace_file"]
+    workspace_paths = sorted(item.path for item in workspace_artifacts)
+
+    assert snapshot.status == "completed"
+    assert workspace_paths == sorted(
+        [
+            str(paths.workspace_dir / "README.md"),
+            str(paths.workspace_dir / "src" / "pipeline.py"),
+            str(paths.workspace_dir / "docs" / "答辩提纲.md"),
+        ]
+    )
