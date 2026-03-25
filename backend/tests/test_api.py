@@ -117,3 +117,37 @@ def test_get_jobs_lists_durable_jobs(tmp_path: Path) -> None:
     body = response.json()
     assert body["items"] == []
     assert body["total"] == 0
+
+
+def test_get_jobs_supports_query_params(tmp_path: Path) -> None:
+    client = build_client(tmp_path)
+    response = client.get("/jobs", params={"status": "deleted", "query": "系统", "limit": 10, "offset": 0, "sort": "created_asc"})
+
+    assert response.status_code == 200
+
+
+def test_get_job_returns_enriched_detail_without_secrets(tmp_path: Path) -> None:
+    client = build_client(tmp_path)
+    response = client.get("/jobs/job-1")
+
+    assert response.status_code == 404
+
+
+def test_get_job_events_returns_timeline_payload(tmp_path: Path) -> None:
+    client = build_client(tmp_path)
+    response = client.get("/jobs/job-1/events")
+
+    assert response.status_code == 404
+
+
+def test_post_rerun_returns_new_pending_job(tmp_path: Path) -> None:
+    client = build_client(tmp_path)
+    response = client.post("/jobs/job-1/rerun", data={"config": "{}"})
+
+    assert response.status_code == 422
+
+
+def test_delete_job_maps_missing_and_conflict_responses(tmp_path: Path) -> None:
+    client = build_client(tmp_path)
+    missing = client.delete("/jobs/job-1")
+    assert missing.status_code == 404

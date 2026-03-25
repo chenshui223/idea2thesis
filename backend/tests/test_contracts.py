@@ -1,10 +1,17 @@
 from idea2thesis.contracts import (
     AgentResult,
     AgentTask,
+    EventListResponse,
     ExecutionReport,
+    JobDetailResponse,
+    JobListItem,
+    JobListResponse,
     JobPlan,
     JobSnapshot,
     ParsedBrief,
+    RerunPreload,
+    RuntimePreset,
+    RuntimePresetAgent,
     SchemaCompatibilityError,
 )
 
@@ -110,3 +117,64 @@ def test_snapshot_rejects_unsupported_version() -> None:
         assert "unsupported schema_version" in str(exc)
     else:
         raise AssertionError("expected schema error")
+
+
+def test_history_contracts_round_trip() -> None:
+    list_item = JobListItem(
+        schema_version="v1alpha1",
+        job_id="job-1",
+        brief_title="图书管理系统",
+        status="deleted",
+        stage="completed",
+        updated_at="2026-03-25T10:00:00Z",
+        created_at="2026-03-25T09:00:00Z",
+        final_disposition="completed",
+    )
+    assert JobListItem.model_validate_json(list_item.model_dump_json()) == list_item
+
+    response = JobListResponse(schema_version="v1alpha1", items=[list_item], total=1)
+    assert JobListResponse.model_validate_json(response.model_dump_json()) == response
+
+    preload = RerunPreload(
+        schema_version="v1alpha1",
+        global_config={"base_url": "https://example.com/v1", "model": "gpt-test"},
+        agents={
+            "coder": RuntimePresetAgent(
+                use_global=False,
+                base_url="https://coder.example.com/v1",
+                model="gpt-coder",
+            )
+        },
+    )
+    assert RerunPreload.model_validate_json(preload.model_dump_json()) == preload
+
+    detail = JobDetailResponse(
+        schema_version="v1alpha1",
+        job_id="job-1",
+        brief_title="图书管理系统",
+        source_job_id="job-0",
+        workspace_path="/tmp/job-1/workspace",
+        input_file_path="/tmp/job-1/input/brief.docx",
+        error_message="",
+        deleted_at=None,
+        status="pending",
+        stage="queued",
+        created_at="2026-03-25T09:00:00Z",
+        updated_at="2026-03-25T10:00:00Z",
+        started_at=None,
+        finished_at=None,
+        validation_state="pending",
+        final_disposition="pending",
+        agents=[],
+        artifacts=[],
+        runtime_preset=RuntimePreset(
+            schema_version="v1alpha1",
+            global_config={"base_url": "https://example.com/v1", "model": "gpt-test"},
+            agents={},
+        ),
+        rerun_preload=preload,
+    )
+    assert JobDetailResponse.model_validate_json(detail.model_dump_json()) == detail
+
+    events = EventListResponse(schema_version="v1alpha1", items=[])
+    assert EventListResponse.model_validate_json(events.model_dump_json()) == events

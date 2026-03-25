@@ -214,3 +214,26 @@ def test_job_creation_rejects_missing_effective_api_key(tmp_path: Path) -> None:
 
     assert response.status_code == 422
     assert "missing effective api_key" in response.text
+
+
+def test_rerun_and_delete_integration(tmp_path: Path) -> None:
+    client = TestClient(
+        create_app(
+            Settings(
+                jobs_dir=tmp_path / "jobs",
+                api_key="",
+                base_url="https://example.com/v1",
+                model="gpt-test",
+                settings_file=tmp_path / ".idea2thesis" / "settings.json",
+                database_path=tmp_path / ".idea2thesis" / "jobs.db",
+                secret_key_path=tmp_path / ".idea2thesis" / "secret.key",
+                secret_dir=tmp_path / ".idea2thesis" / "job-secrets",
+            )
+        )
+    )
+
+    rerun = client.post("/jobs/source-job/rerun", data={"config": "{}"})
+    assert rerun.status_code == 422
+
+    deleted = client.delete("/jobs/source-job")
+    assert deleted.status_code == 404

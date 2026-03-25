@@ -83,6 +83,7 @@ def initialize_database(settings: Settings) -> None:
     with open_connection(settings) as connection:
         for statement in SCHEMA_STATEMENTS:
             connection.execute(statement)
+        _ensure_jobs_deleted_at_column(connection)
         connection.commit()
 
 
@@ -94,3 +95,12 @@ def open_connection(settings: Settings) -> Iterator[sqlite3.Connection]:
         yield connection
     finally:
         connection.close()
+
+
+def _ensure_jobs_deleted_at_column(connection: sqlite3.Connection) -> None:
+    columns = {
+        row[1]
+        for row in connection.execute("PRAGMA table_info(jobs)")
+    }
+    if "deleted_at" not in columns:
+        connection.execute("ALTER TABLE jobs ADD COLUMN deleted_at TEXT")

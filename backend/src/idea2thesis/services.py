@@ -8,12 +8,13 @@ from pydantic import ValidationError
 
 from idea2thesis.config import Settings, atomic_write_text, validate_base_url
 from idea2thesis.contracts import (
-    JobListItem,
+    JobDetailResponse,
     JobListResponse,
     JobRuntimeConfig,
     JobSnapshot,
     ParsedBrief,
     PersistedSettings,
+    RerunPreload,
     SettingsResponse,
     SchemaCompatibilityError,
 )
@@ -144,14 +145,54 @@ class ApplicationService:
                 paths.root_dir.rmdir()
             raise
 
-    def get_job(self, job_id: str) -> JobSnapshot | None:
+    def get_job(self, job_id: str) -> JobDetailResponse | None:
         try:
             return self.job_store.get_job(job_id)
         except KeyError:
             return None
 
-    def list_jobs(self) -> JobListResponse:
-        return self.job_store.list_jobs()
+    def list_jobs(
+        self,
+        *,
+        status: str | None = None,
+        query: str | None = None,
+        sort: str = "updated_desc",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> JobListResponse:
+        return self.job_store.list_jobs(
+            status=status, query=query, sort=sort, limit=limit, offset=offset
+        )
+
+    def list_job_events(self, job_id: str):
+        return self.job_store.list_job_events(job_id)
+
+    def rerun_job(
+        self, source_job_id: str, runtime_config: JobRuntimeConfig
+    ) -> JobDetailResponse:
+        new_job_id = uuid4().hex[:12]
+        source = self.job_store.get_job(source_job_id)
+        source_runtime = source.runtime_preset
+        runtime_inputs = {
+            "global_base_url": source_runtime.global_config.base_url,
+            "global_model": source_runtime.global_config.model,
+            "agents_json": json.dumps(
+                runtime_config.model_dump(by_alias=True)["agents"],
+                ensure_ascii=False,
+            ),
+            "api_key_required": True,
+        }
+        secret_path = self.settings.secret_dir / f"{new_job_id}.bin"
+        return self.job_store.create_rerun_job(
+            source_job_id=source.job_id,
+            new_job_id=new_job_id,
+            secret_file_path=str(secret_path),
+            runtime_inputs=runtime_inputs,
+            agents=list(source_runtime.agents.keys()),
+        )
+
+    def delete_job(self, job_id: str) -> JobDetailResponse:
+        return self.job_store.soft_delete_job(job_id)
 
     def _write_parsed_brief(self, paths: JobPaths, brief: ParsedBrief) -> None:
         parsed_path = paths.parsed_dir / "brief.json"
@@ -159,16 +200,6 @@ class ApplicationService:
             json.dumps(brief.model_dump(), ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-
-    def _write_snapshot(self, paths: JobPaths, snapshot: JobSnapshot) -> None:
-        self._snapshot_path(paths.root_dir.name).write_text(
-            snapshot.model_dump_json(indent=2),
-            encoding="utf-8",
-        )
-
-    def _snapshot_path(self, job_id: str) -> Path:
-        safe_job_id = self.storage.normalize_job_id(job_id)
-        return self.settings.jobs_dir / safe_job_id / "parsed" / "snapshot.json"
 
     def _validate_persisted_settings(self, persisted: PersistedSettings) -> None:
         try:

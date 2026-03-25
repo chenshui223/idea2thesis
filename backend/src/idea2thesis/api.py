@@ -32,20 +32,58 @@ def create_router(service: ApplicationService) -> APIRouter:
         payload = await file.read()
         try:
             runtime_config = service.parse_runtime_config(config)
-            snapshot = service.create_job(file.filename or "brief.docx", payload, runtime_config)
+            snapshot = service.create_job(
+                file.filename or "brief.docx", payload, runtime_config
+            )
         except ConfigurationError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-        return snapshot.model_dump()
+        return snapshot.model_dump(by_alias=True)
 
     @router.get("/jobs")
-    def list_jobs() -> dict[str, object]:
-        return service.list_jobs().model_dump()
+    def list_jobs(
+        status: str | None = None,
+        query: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+        sort: str = "updated_desc",
+    ) -> dict[str, object]:
+        return service.list_jobs(
+            status=status, query=query, sort=sort, limit=limit, offset=offset
+        ).model_dump(by_alias=True)
 
     @router.get("/jobs/{job_id}")
     def get_job(job_id: str) -> dict[str, object]:
-        snapshot = service.get_job(job_id)
-        if snapshot is None:
+        detail = service.get_job(job_id)
+        if detail is None:
             raise HTTPException(status_code=404, detail="job not found")
-        return snapshot.model_dump()
+        return detail.model_dump(by_alias=True)
+
+    @router.get("/jobs/{job_id}/events")
+    def get_job_events(job_id: str) -> dict[str, object]:
+        try:
+            return service.list_job_events(job_id).model_dump(by_alias=True)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="job not found")
+
+    @router.post("/jobs/{job_id}/rerun", status_code=201)
+    async def rerun_job(job_id: str, config: str = Form(...)) -> dict[str, object]:
+        try:
+            runtime_config = service.parse_runtime_config(config)
+            detail = service.rerun_job(job_id, runtime_config)
+        except ConfigurationError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except KeyError:
+            raise HTTPException(status_code=404, detail="job not found")
+        return detail.model_dump(by_alias=True)
+
+    @router.delete("/jobs/{job_id}")
+    def delete_job(job_id: str) -> dict[str, object]:
+        try:
+            detail = service.delete_job(job_id)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="job not found")
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return detail.model_dump(by_alias=True)
 
     return router

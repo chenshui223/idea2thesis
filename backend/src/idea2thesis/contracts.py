@@ -165,6 +165,7 @@ class JobListItem(VersionedModel):
         "failed",
         "blocked",
         "interrupted",
+        "deleted",
     ]
     stage: str
     updated_at: str
@@ -175,6 +176,7 @@ class JobListItem(VersionedModel):
         "failed",
         "blocked",
         "interrupted",
+        "deleted",
     ]
 
 
@@ -193,6 +195,7 @@ class JobSnapshot(VersionedModel):
         "failed",
         "blocked",
         "interrupted",
+        "deleted",
     ]
     agents: list[AgentStatus] = Field(default_factory=list)
     artifacts: list[ArtifactRef] = Field(default_factory=list)
@@ -203,4 +206,81 @@ class JobSnapshot(VersionedModel):
         "failed",
         "blocked",
         "interrupted",
+        "deleted",
     ]
+
+
+class RuntimePresetGlobal(BaseModel):
+    base_url: str = ""
+    model: str = ""
+
+
+class RuntimePresetAgent(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    use_global: bool = Field(default=True, alias="useGlobal")
+    base_url: str = ""
+    model: str = ""
+
+    def model_dump(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        kwargs.setdefault("by_alias", True)
+        return super().model_dump(*args, **kwargs)
+
+
+class RuntimePreset(VersionedModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    global_config: RuntimePresetGlobal = Field(alias="global")
+    agents: dict[str, RuntimePresetAgent] = Field(default_factory=dict)
+
+
+class RerunPreload(RuntimePreset):
+    pass
+
+
+class JobDetailResponse(VersionedModel):
+    job_id: str
+    brief_title: str
+    source_job_id: str | None = None
+    workspace_path: str
+    input_file_path: str
+    error_message: str = ""
+    deleted_at: str | None = None
+    status: Literal[
+        "pending",
+        "running",
+        "completed",
+        "failed",
+        "blocked",
+        "interrupted",
+        "deleted",
+    ]
+    stage: str
+    created_at: str
+    updated_at: str
+    started_at: str | None = None
+    finished_at: str | None = None
+    validation_state: Literal["pending", "running", "completed", "blocked"]
+    final_disposition: Literal[
+        "pending",
+        "completed",
+        "failed",
+        "blocked",
+        "interrupted",
+        "deleted",
+    ]
+    agents: list[AgentStatus] = Field(default_factory=list)
+    artifacts: list[ArtifactRef] = Field(default_factory=list)
+    runtime_preset: RuntimePreset
+
+
+class JobEventItem(VersionedModel):
+    id: int
+    timestamp: str
+    kind: str
+    message: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class EventListResponse(VersionedModel):
+    items: list[JobEventItem] = Field(default_factory=list)
