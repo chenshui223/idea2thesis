@@ -18,6 +18,11 @@ export type ArtifactContent = {
   truncated: boolean;
 };
 
+export type OpenArtifactResponse = {
+  ok: boolean;
+  path: string;
+};
+
 function normalizeRuntimePreset(input: any): RuntimePreset {
   if (input?.global) {
     return {
@@ -229,6 +234,34 @@ export async function fetchArtifactContent(
   const response = await fetch(`/jobs/${jobId}/artifacts/content${url.search}`);
   if (!response.ok) {
     throw new Error("failed to fetch artifact content");
+  }
+  return response.json();
+}
+
+export async function downloadArtifact(
+  jobId: string,
+  artifact: ArtifactRef
+): Promise<Blob> {
+  const url = new URL(`/jobs/${jobId}/artifacts/download`, window.location.origin);
+  url.searchParams.set("path", artifact.path);
+  const response = await fetch(`/jobs/${jobId}/artifacts/download${url.search}`);
+  if (!response.ok) {
+    throw new Error("failed to download artifact");
+  }
+  return response.blob();
+}
+
+export async function openArtifactInFolder(
+  jobId: string,
+  artifact: ArtifactRef
+): Promise<OpenArtifactResponse> {
+  const url = new URL(`/jobs/${jobId}/artifacts/open`, window.location.origin);
+  url.searchParams.set("path", artifact.path);
+  const response = await fetch(`/jobs/${jobId}/artifacts/open${url.search}`, {
+    method: "POST"
+  });
+  if (!response.ok) {
+    throw new Error("failed to open artifact in folder");
   }
   return response.json();
 }

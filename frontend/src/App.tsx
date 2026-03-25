@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   deleteJob,
+  downloadArtifact,
   fetchArtifactContent,
   fetchJobDetail,
   fetchJobEvents,
   fetchJobs,
   fetchSettings,
+  openArtifactInFolder,
   rerunJob,
   saveSettings,
   uploadBrief
@@ -252,6 +254,9 @@ export default function App() {
   const [artifactPreviewTruncated, setArtifactPreviewTruncated] = useState(false);
   const [artifactPreviewError, setArtifactPreviewError] = useState("");
   const [selectedArtifactPath, setSelectedArtifactPath] = useState("");
+  const [selectedArtifact, setSelectedArtifact] = useState<ArtifactRef | null>(null);
+  const [artifactActionError, setArtifactActionError] = useState("");
+  const [artifactActionBusy, setArtifactActionBusy] = useState(false);
   const pollTimerRef = useRef<number | null>(null);
   const selectedJobId = selectedJob?.job_id ?? snapshot.job_id;
 
@@ -319,6 +324,7 @@ export default function App() {
     setDetailError("");
     try {
       const detail = await fetchJobDetail(jobId);
+      handleClearArtifactPreview();
       setSelectedJob(detail);
       setSnapshot(buildSelectedSnapshot(detail));
       return detail;
@@ -608,7 +614,10 @@ export default function App() {
   };
 
   const handleClearArtifactPreview = () => {
+    setSelectedArtifact(null);
     setSelectedArtifactPath("");
+    setArtifactActionError("");
+    setArtifactActionBusy(false);
     setArtifactPreviewTitle("");
     setArtifactPreviewFileName("");
     setArtifactPreviewKind("");
@@ -621,7 +630,9 @@ export default function App() {
     if (!currentJobId) {
       return;
     }
+    setSelectedArtifact(artifact);
     setSelectedArtifactPath(artifact.path);
+    setArtifactActionError("");
     setArtifactPreviewTitle(artifact.path);
     setArtifactPreviewFileName(artifact.path.split("/").pop() ?? "");
     setArtifactPreviewKind(artifact.kind);
@@ -637,6 +648,48 @@ export default function App() {
       setArtifactPreviewError(
         error instanceof Error ? error.message : "failed to fetch artifact content"
       );
+    }
+  };
+
+  const handleDownloadArtifact = async () => {
+    if (!currentJobId || !selectedArtifact) {
+      return;
+    }
+    setArtifactActionBusy(true);
+    setArtifactActionError("");
+    try {
+      const blob = await downloadArtifact(currentJobId, selectedArtifact);
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = selectedArtifact.path.split("/").pop() ?? "artifact";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      setArtifactActionError(
+        error instanceof Error ? error.message : "failed to download artifact"
+      );
+    } finally {
+      setArtifactActionBusy(false);
+    }
+  };
+
+  const handleOpenArtifactInFolder = async () => {
+    if (!currentJobId || !selectedArtifact) {
+      return;
+    }
+    setArtifactActionBusy(true);
+    setArtifactActionError("");
+    try {
+      await openArtifactInFolder(currentJobId, selectedArtifact);
+    } catch (error) {
+      setArtifactActionError(
+        error instanceof Error ? error.message : "failed to open artifact in folder"
+      );
+    } finally {
+      setArtifactActionBusy(false);
     }
   };
 
@@ -727,7 +780,16 @@ export default function App() {
         content={artifactPreviewContent}
         truncated={artifactPreviewTruncated}
         errorMessage={artifactPreviewError}
+        actionErrorMessage={artifactActionError}
+        canActOnArtifact={Boolean(selectedArtifact)}
+        actionBusy={artifactActionBusy}
         onClear={handleClearArtifactPreview}
+        onDownload={() => {
+          void handleDownloadArtifact();
+        }}
+        onOpenInFolder={() => {
+          void handleOpenArtifactInFolder();
+        }}
       />
       <ValidationReportViewer
         validationState={snapshot.validation_state}

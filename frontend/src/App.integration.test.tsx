@@ -24,6 +24,7 @@ describe("App history workbench", () => {
     localStorage.clear();
     sessionStorage.clear();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   test("loads history list and auto-selects first row", async () => {
@@ -794,6 +795,12 @@ describe("App history workbench", () => {
     expect(await screen.findByText("Document Preview")).toBeInTheDocument();
     expect(await screen.findByText("File: 答辩提纲.md")).toBeInTheDocument();
     expect(screen.getByText("Preview status: complete")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Download Artifact" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open In Folder" })
+    ).toBeInTheDocument();
     expect(screen.queryByText("# 答辩提纲")).not.toBeInTheDocument();
     expect(screen.getByText((_, element) => element?.tagName.toLowerCase() === "article" && (element.textContent?.includes("项目背景") ?? false))).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Clear Preview" }));
@@ -816,5 +823,156 @@ describe("App history workbench", () => {
     expect(screen.getByText("Preview status: error")).toBeInTheDocument();
     expect(screen.getByText("failed to fetch artifact content")).toBeInTheDocument();
     expect(screen.getByText(/verification_completed/i)).toBeInTheDocument();
+  });
+
+  test("artifact preview actions download and open the selected artifact", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockResolvedValueOnce(mockSettingsResponse());
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        total: 1,
+        items: [
+          {
+            job_id: "job-1",
+            brief_title: "Thesis Job",
+            status: "completed",
+            stage: "completed",
+            final_disposition: "completed",
+            updated_at: "2026-03-25T00:00:00Z",
+            created_at: "2026-03-25T00:00:00Z"
+          }
+        ]
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        job_id: "job-1",
+        brief_title: "Thesis Job",
+        source_job_id: null,
+        status: "completed",
+        stage: "completed",
+        final_disposition: "completed",
+        validation_state: "completed",
+        workspace_path: "/jobs/job-1/workspace",
+        input_file_path: "/jobs/job-1/input/brief.docx",
+        error_message: "",
+        deleted_at: null,
+        created_at: "2026-03-25T00:00:00Z",
+        updated_at: "2026-03-25T00:02:00Z",
+        agents: [],
+        artifacts: [
+          { kind: "workspace_file", path: "/jobs/job-1/workspace/docs/答辩提纲.md" }
+        ],
+        runtime_preset: {
+          global: {
+            base_url: "https://api.example.com/v1",
+            model: "gpt-4.1-mini"
+          },
+          agents: {}
+        }
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        items: []
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        path: "/jobs/job-1/workspace/docs/答辩提纲.md",
+        content: "# 答辩提纲\n\n- 项目背景\n",
+        truncated: false
+      })
+    );
+
+    const downloadBlob = new Blob(["artifact body"], { type: "text/markdown" });
+    fetchMock.mockResolvedValueOnce(
+      new Response(downloadBlob, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/markdown"
+        }
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        ok: true,
+        path: "/jobs/job-1/workspace/docs/答辩提纲.md"
+      })
+    );
+
+    const createObjectURL = vi.fn(() => "blob:idea2thesis");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(window.URL, "createObjectURL", {
+      value: createObjectURL,
+      configurable: true
+    });
+    Object.defineProperty(window.URL, "revokeObjectURL", {
+      value: revokeObjectURL,
+      configurable: true
+    });
+
+    const anchorClick = vi.fn();
+    const anchorRemove = vi.fn();
+    const createdAnchors: Array<{
+      href: string;
+      download: string;
+      click: ReturnType<typeof vi.fn>;
+      remove: ReturnType<typeof vi.fn>;
+    }> = [];
+    const originalCreateElement = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tagName: string) => {
+      if (tagName.toLowerCase() === "a") {
+        const anchor = originalCreateElement("a");
+        Object.defineProperty(anchor, "click", {
+          value: anchorClick
+        });
+        Object.defineProperty(anchor, "remove", {
+          value: anchorRemove
+        });
+        createdAnchors.push(anchor as unknown as {
+          href: string;
+          download: string;
+          click: ReturnType<typeof vi.fn>;
+          remove: ReturnType<typeof vi.fn>;
+        });
+        return anchor;
+      }
+      return originalCreateElement(tagName);
+    });
+
+    render(<App />);
+
+    const generatedDocsSection = await screen.findByRole("heading", {
+      name: "Generated Docs"
+    });
+    await userEvent.click(
+      within(generatedDocsSection.closest("section") as HTMLElement).getByText((_, element) =>
+        element?.tagName.toLowerCase() === "li" &&
+        (element.textContent?.includes("workspace/docs/答辩提纲.md") ?? false)
+      )
+    );
+
+    await screen.findByText("Document Preview");
+
+    await userEvent.click(screen.getByRole("button", { name: "Download Artifact" }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/jobs/job-1/artifacts/download?path=%2Fjobs%2Fjob-1%2Fworkspace%2Fdocs%2F%E7%AD%94%E8%BE%A9%E6%8F%90%E7%BA%B2.md"
+    );
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(anchorClick).toHaveBeenCalled();
+    expect(anchorRemove).toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:idea2thesis");
+
+    await userEvent.click(screen.getByRole("button", { name: "Open In Folder" }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/jobs/job-1/artifacts/open?path=%2Fjobs%2Fjob-1%2Fworkspace%2Fdocs%2F%E7%AD%94%E8%BE%A9%E6%8F%90%E7%BA%B2.md",
+      expect.objectContaining({
+        method: "POST"
+      })
+    );
   });
 });

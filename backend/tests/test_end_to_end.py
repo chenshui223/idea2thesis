@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import patch
 
 from docx import Document
 from fastapi.testclient import TestClient
@@ -563,3 +564,136 @@ def test_artifact_content_endpoint_rejects_unregistered_path(tmp_path: Path) -> 
         params={"path": "/tmp/not-registered.txt"},
     )
     assert response.status_code == 404
+
+
+def test_artifact_download_endpoint_returns_registered_artifact_file(tmp_path: Path) -> None:
+    file_path = tmp_path / "brief.docx"
+    document = Document()
+    document.add_heading("图书管理系统", level=1)
+    document.add_paragraph("功能要求：用户登录、图书查询、借阅管理")
+    document.save(file_path)
+
+    settings = Settings(
+        jobs_dir=tmp_path / "jobs",
+        api_key="",
+        base_url="https://example.com/v1",
+        model="gpt-test",
+        settings_file=tmp_path / ".idea2thesis" / "settings.json",
+        database_path=tmp_path / ".idea2thesis" / "jobs.db",
+        secret_key_path=tmp_path / ".idea2thesis" / "secret.key",
+        secret_dir=tmp_path / ".idea2thesis" / "job-secrets",
+    )
+    client = TestClient(create_app(settings))
+    with file_path.open("rb") as handle:
+        created = client.post(
+            "/jobs",
+            files={
+                "file": (
+                    "brief.docx",
+                    handle.read(),
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            },
+            data={
+                "config": """
+                {
+                  "schema_version": "v1alpha1",
+                  "global": {
+                    "api_key": "runtime-key",
+                    "base_url": "https://example.com/v1",
+                    "model": "gpt-test"
+                  },
+                  "agents": {}
+                }
+                """
+            },
+        )
+    assert created.status_code == 201
+    job_id = created.json()["job_id"]
+
+    worker = AsyncJobWorker(settings)
+    assert worker.run_once() is True
+
+    detail = client.get(f"/jobs/{job_id}")
+    assert detail.status_code == 200
+    download_artifact = next(
+        item for item in detail.json()["artifacts"] if item["kind"] == "project_readme"
+    )
+
+    response = client.get(
+        f"/jobs/{job_id}/artifacts/download",
+        params={"path": download_artifact["path"]},
+    )
+    assert response.status_code == 200
+    assert response.content
+    assert response.headers["content-type"].startswith("text/")
+    assert "attachment" in response.headers["content-disposition"]
+
+
+def test_artifact_open_endpoint_executes_system_file_manager_for_registered_artifact(
+    tmp_path: Path,
+) -> None:
+    file_path = tmp_path / "brief.docx"
+    document = Document()
+    document.add_heading("图书管理系统", level=1)
+    document.add_paragraph("功能要求：用户登录、图书查询、借阅管理")
+    document.save(file_path)
+
+    settings = Settings(
+        jobs_dir=tmp_path / "jobs",
+        api_key="",
+        base_url="https://example.com/v1",
+        model="gpt-test",
+        settings_file=tmp_path / ".idea2thesis" / "settings.json",
+        database_path=tmp_path / ".idea2thesis" / "jobs.db",
+        secret_key_path=tmp_path / ".idea2thesis" / "secret.key",
+        secret_dir=tmp_path / ".idea2thesis" / "job-secrets",
+    )
+    client = TestClient(create_app(settings))
+    with file_path.open("rb") as handle:
+        created = client.post(
+            "/jobs",
+            files={
+                "file": (
+                    "brief.docx",
+                    handle.read(),
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            },
+            data={
+                "config": """
+                {
+                  "schema_version": "v1alpha1",
+                  "global": {
+                    "api_key": "runtime-key",
+                    "base_url": "https://example.com/v1",
+                    "model": "gpt-test"
+                  },
+                  "agents": {}
+                }
+                """
+            },
+        )
+    assert created.status_code == 201
+    job_id = created.json()["job_id"]
+
+    worker = AsyncJobWorker(settings)
+    assert worker.run_once() is True
+
+    detail = client.get(f"/jobs/{job_id}")
+    assert detail.status_code == 200
+    open_artifact = next(
+        item for item in detail.json()["artifacts"] if item["kind"] == "project_readme"
+    )
+
+    with patch("idea2thesis.services.platform.system", return_value="Darwin"):
+        with patch("idea2thesis.services.subprocess.run") as run_mock:
+            response = client.post(
+                f"/jobs/{job_id}/artifacts/open",
+                params={"path": open_artifact["path"]},
+            )
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+    assert response.json()["path"] == open_artifact["path"]
+    run_mock.assert_called_once()

@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fetchJob, fetchSettings, saveSettings, uploadBrief } from "./api";
+import {
+  downloadArtifact,
+  fetchJob,
+  fetchSettings,
+  openArtifactInFolder,
+  saveSettings,
+  uploadBrief
+} from "./api";
 import type { PersistedSettings, RuntimeConfig } from "./types";
 
 describe("api helpers", () => {
@@ -97,5 +104,45 @@ describe("api helpers", () => {
         body: JSON.stringify(settings)
       })
     );
+  });
+
+  it("downloadArtifact fetches the download endpoint and returns a blob", async () => {
+    const blob = new Blob(["artifact body"], { type: "text/plain" });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: async () => blob
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await downloadArtifact("job-1", {
+      kind: "workspace_file",
+      path: "/jobs/job-1/workspace/docs/report.md"
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/jobs/job-1/artifacts/download?path=%2Fjobs%2Fjob-1%2Fworkspace%2Fdocs%2Freport.md"
+    );
+    expect(result).toBe(blob);
+  });
+
+  it("openArtifactInFolder posts the artifact path to backend", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, path: "/jobs/job-1/workspace/docs/report.md" })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await openArtifactInFolder("job-1", {
+      kind: "workspace_file",
+      path: "/jobs/job-1/workspace/docs/report.md"
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/jobs/job-1/artifacts/open?path=%2Fjobs%2Fjob-1%2Fworkspace%2Fdocs%2Freport.md",
+      expect.objectContaining({
+        method: "POST"
+      })
+    );
+    expect(result.ok).toBe(true);
   });
 });

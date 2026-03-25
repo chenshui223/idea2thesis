@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 
 from idea2thesis.contracts import PersistedSettings
 from idea2thesis.services import ApplicationService, ConfigurationError
@@ -76,6 +77,24 @@ def create_router(service: ApplicationService) -> APIRouter:
             raise HTTPException(status_code=404, detail="artifact not found")
         except ValueError as exc:
             raise HTTPException(status_code=415, detail=str(exc)) from exc
+
+    @router.get("/jobs/{job_id}/artifacts/download")
+    def download_artifact(job_id: str, path: str) -> FileResponse:
+        try:
+            artifact_path = service.get_artifact_download_path(job_id, path)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="artifact not found")
+        return FileResponse(
+            path=artifact_path,
+            filename=artifact_path.name,
+        )
+
+    @router.post("/jobs/{job_id}/artifacts/open")
+    def open_artifact(job_id: str, path: str) -> dict[str, object]:
+        try:
+            return service.open_artifact_in_file_manager(job_id, path)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="artifact not found")
 
     @router.post("/jobs/{job_id}/rerun", status_code=201)
     async def rerun_job(job_id: str, config: str = Form(...)) -> dict[str, object]:

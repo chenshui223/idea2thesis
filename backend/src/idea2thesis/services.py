@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import platform
+import subprocess
 from pathlib import Path
 from uuid import uuid4
 
@@ -165,20 +167,7 @@ class ApplicationService:
         return self.job_store.list_job_events(job_id)
 
     def get_artifact_content(self, job_id: str, path: str) -> dict[str, object]:
-        detail = self.get_job(job_id)
-        if detail is None:
-            raise KeyError(job_id)
-
-        registered_paths = {artifact.path for artifact in detail.artifacts}
-        if path not in registered_paths:
-            raise KeyError(path)
-
-        job_root = Path(detail.workspace_path).parent.resolve()
-        target_path = Path(path).resolve()
-        if target_path != job_root and job_root not in target_path.parents:
-            raise KeyError(path)
-        if not target_path.is_file():
-            raise KeyError(path)
+        target_path = self._resolve_registered_artifact_path(job_id, path)
 
         try:
             content = target_path.read_text(encoding="utf-8")
@@ -192,6 +181,15 @@ class ApplicationService:
             "content": content[:limit],
             "truncated": truncated,
         }
+
+    def get_artifact_download_path(self, job_id: str, path: str) -> Path:
+        return self._resolve_registered_artifact_path(job_id, path)
+
+    def open_artifact_in_file_manager(self, job_id: str, path: str) -> dict[str, object]:
+        target_path = self._resolve_registered_artifact_path(job_id, path)
+        command = self._build_file_manager_command(target_path)
+        subprocess.run(command, check=False)
+        return {"ok": True, "path": str(target_path)}
 
     def rerun_job(
         self, source_job_id: str, runtime_config: JobRuntimeConfig
@@ -268,3 +266,28 @@ class ApplicationService:
                 "model": override.model,
             }
         return json.dumps(persisted_agents, ensure_ascii=False)
+
+    def _resolve_registered_artifact_path(self, job_id: str, path: str) -> Path:
+        detail = self.get_job(job_id)
+        if detail is None:
+            raise KeyError(job_id)
+
+        registered_paths = {artifact.path for artifact in detail.artifacts}
+        if path not in registered_paths:
+            raise KeyError(path)
+
+        job_root = Path(detail.workspace_path).parent.resolve()
+        target_path = Path(path).resolve()
+        if target_path != job_root and job_root not in target_path.parents:
+            raise KeyError(path)
+        if not target_path.is_file():
+            raise KeyError(path)
+        return target_path
+
+    def _build_file_manager_command(self, target_path: Path) -> list[str]:
+        system = platform.system()
+        if system == "Darwin":
+            return ["open", str(target_path.parent)]
+        if system == "Windows":
+            return ["explorer", str(target_path.parent)]
+        return ["xdg-open", str(target_path.parent)]
