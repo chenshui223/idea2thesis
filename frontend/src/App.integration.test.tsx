@@ -708,6 +708,8 @@ describe("App history workbench", () => {
     render(<App />);
 
     expect(await screen.findByText("Current job: job-1")).toBeInTheDocument();
+    expect(screen.getByText("Preview status: idle")).toBeInTheDocument();
+    expect(screen.getByText("Select an artifact to preview.")).toBeInTheDocument();
     expect(screen.getByText(/advisor: defined delivery scope/i)).toBeInTheDocument();
     const artifactsSection = screen.getByRole("heading", { name: "Artifacts" }).closest("section");
     expect(artifactsSection).not.toBeNull();
@@ -766,10 +768,22 @@ describe("App history workbench", () => {
       )
     );
     expect(await screen.findByText("Artifact Preview")).toBeInTheDocument();
+    expect(screen.getByText("Code Preview")).toBeInTheDocument();
     expect(screen.getByText("File: pipeline.py")).toBeInTheDocument();
     expect(screen.getByText("Artifact type: workspace_file")).toBeInTheDocument();
     expect(screen.getByText("Preview status: complete")).toBeInTheDocument();
     expect(screen.getByText("print('provider generated')")).toBeInTheDocument();
+    fetchMock.mockResolvedValueOnce(new Response("boom", { status: 500 }) as Response);
+    await userEvent.click(
+      within(generatedDocsSection as HTMLElement).getByText((_, element) =>
+        element?.tagName.toLowerCase() === "li" &&
+        (element.textContent?.includes("workspace/docs/答辩提纲.md") ?? false)
+      )
+    );
+    expect(await screen.findByText("Document Preview")).toBeInTheDocument();
+    expect(await screen.findByText("File: 答辩提纲.md")).toBeInTheDocument();
+    expect(screen.getByText("Preview status: error")).toBeInTheDocument();
+    expect(screen.getByText("failed to fetch artifact content")).toBeInTheDocument();
     expect(screen.getByText(/verification_completed/i)).toBeInTheDocument();
   });
 });
