@@ -13,7 +13,18 @@ function mockResponse(body: unknown, ok = true, status = 200): Response {
 function mockSettingsResponse() {
   return mockResponse({
     schema_version: "v1alpha1",
-    global: { base_url: "https://api.example.com/v1", model: "gpt-4.1-mini" },
+    global: {
+      base_url: "https://api.example.com/v1",
+      model: "gpt-4.1-mini",
+      thesis_cover: {
+        school: "示例大学",
+        department: "计算机学院",
+        major: "软件工程",
+        student_name: "张三",
+        student_id: "20240001",
+        advisor: "李老师"
+      }
+    },
     agents: {},
     api_key_configured: false
   });
@@ -93,6 +104,8 @@ describe("App history workbench", () => {
     render(<App />);
 
     expect(await screen.findByText("First job")).toBeInTheDocument();
+    expect(screen.getByLabelText("School")).toHaveValue("示例大学");
+    expect(screen.getByLabelText("Student Name")).toHaveValue("张三");
     expect(screen.getByRole("row", { name: /First job/ })).toHaveAttribute(
       "aria-selected",
       "true"

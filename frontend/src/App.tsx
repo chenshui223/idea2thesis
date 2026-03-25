@@ -110,7 +110,15 @@ function mergePersistedSettings(
     global: {
       apiKey: "",
       baseUrl: persisted?.global.base_url ?? "https://api.openai.com/v1",
-      model: persisted?.global.model ?? "gpt-4.1-mini"
+      model: persisted?.global.model ?? "gpt-4.1-mini",
+      thesisCover: {
+        school: persisted?.global.thesis_cover?.school ?? "",
+        department: persisted?.global.thesis_cover?.department ?? "",
+        major: persisted?.global.thesis_cover?.major ?? "",
+        studentName: persisted?.global.thesis_cover?.student_name ?? "",
+        studentId: persisted?.global.thesis_cover?.student_id ?? "",
+        advisor: persisted?.global.thesis_cover?.advisor ?? ""
+      }
     },
     agents: mergedAgents
   };
@@ -124,7 +132,15 @@ function toPersistedSettings(
     schema_version: "v1alpha1",
     global: {
       base_url: globalSettings.baseUrl,
-      model: globalSettings.model
+      model: globalSettings.model,
+      thesis_cover: {
+        school: globalSettings.thesisCover.school,
+        department: globalSettings.thesisCover.department,
+        major: globalSettings.thesisCover.major,
+        student_name: globalSettings.thesisCover.studentName,
+        student_id: globalSettings.thesisCover.studentId,
+        advisor: globalSettings.thesisCover.advisor
+      }
     },
     agents: Object.fromEntries(
       AGENT_ROLES.map((role) => [
@@ -272,7 +288,8 @@ export default function App() {
     const nextGlobalSettings: GlobalSettings = {
       apiKey: "",
       baseUrl: detail.runtime_preset.global.base_url,
-      model: detail.runtime_preset.global.model
+      model: detail.runtime_preset.global.model,
+      thesisCover: globalSettings.thesisCover
     };
     const nextAgentSettings = Object.fromEntries(
       AGENT_ROLES.map((role) => {
@@ -701,6 +718,7 @@ export default function App() {
         apiKey={globalSettings.apiKey}
         baseUrl={globalSettings.baseUrl}
         model={globalSettings.model}
+        thesisCover={globalSettings.thesisCover}
         onApiKeyChange={(value) =>
           handleGlobalSettingsChange({ apiKey: value }, false)
         }
@@ -709,6 +727,17 @@ export default function App() {
         }
         onModelChange={(value) =>
           handleGlobalSettingsChange({ model: value }, true)
+        }
+        onThesisCoverChange={(patch) =>
+          handleGlobalSettingsChange(
+            {
+              thesisCover: {
+                ...globalSettings.thesisCover,
+                ...patch
+              }
+            },
+            true
+          )
         }
       />
       <button

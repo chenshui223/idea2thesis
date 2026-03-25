@@ -195,6 +195,7 @@ def _build_thesis_docx(
     *,
     path: Path,
     title: str,
+    thesis_cover: dict[str, str] | None,
     abstract: str,
     requirements_analysis: str,
     system_design: str,
@@ -203,6 +204,7 @@ def _build_thesis_docx(
     conclusion: str,
 ) -> None:
     document = Document()
+    cover = thesis_cover or {}
     section = document.sections[0]
     section.top_margin = Cm(2.54)
     section.bottom_margin = Cm(2.54)
@@ -236,10 +238,12 @@ def _build_thesis_docx(
     document.add_paragraph()
 
     cover_fields = [
-        "学生姓名：待填写",
-        "学号：待填写",
-        "专业：计算机软件相关专业",
-        "指导教师：待填写",
+        f"学校：{cover.get('school', '待填写')}",
+        f"学院：{cover.get('department', '待填写')}",
+        f"学生姓名：{cover.get('student_name', '待填写')}",
+        f"学号：{cover.get('student_id', '待填写')}",
+        f"专业：{cover.get('major', '计算机软件相关专业')}",
+        f"指导教师：{cover.get('advisor', '待填写')}",
         f"题目：{title}",
     ]
     for field in cover_fields:
@@ -369,6 +373,7 @@ class SupervisorOrchestrator:
         executor: LocalCommandExecutor,
         on_progress: Callable[[str, list[AgentStatus], str, str, dict[str, object]], None]
         | None = None,
+        thesis_cover: dict[str, str] | None = None,
         provider_configs: dict[str, AgentProviderConfig] | None = None,
     ) -> JobSnapshot:
         plan = self.build_plan(brief)
@@ -624,6 +629,7 @@ class SupervisorOrchestrator:
         _build_thesis_docx(
             path=artifact_paths.thesis_draft_docx,
             title=thesis_title,
+            thesis_cover=thesis_cover,
             abstract=thesis_abstract,
             requirements_analysis=thesis_requirements_analysis,
             system_design=thesis_system_design,

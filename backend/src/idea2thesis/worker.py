@@ -13,6 +13,7 @@ from idea2thesis.orchestrator import SupervisorOrchestrator
 from idea2thesis.parser import parse_brief
 from idea2thesis.providers.runner import build_agent_provider_configs
 from idea2thesis.secrets import delete_job_secret, read_job_secret
+from idea2thesis.services import ApplicationService
 from idea2thesis.storage import JobPaths
 
 
@@ -21,6 +22,7 @@ class AsyncJobWorker:
         self.settings = settings
         self.job_store = JobStore(settings)
         self.orchestrator = SupervisorOrchestrator()
+        self.application_service = ApplicationService(settings)
         self.worker_id = f"worker-{uuid4().hex[:8]}"
 
     def reconcile_startup_state(self) -> int:
@@ -103,6 +105,7 @@ class AsyncJobWorker:
                 event_message=event_message,
                 payload=payload,
             ),
+            thesis_cover=self.application_service.get_persisted_settings().global_config.thesis_cover,
             provider_configs=provider_configs,
         )
         self.job_store.mark_job_completed(snapshot, clear_secret_file=True)

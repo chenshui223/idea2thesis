@@ -761,3 +761,90 @@ def test_artifact_download_endpoint_returns_generated_thesis_docx(tmp_path: Path
     assert response.status_code == 200
     assert response.content.startswith(b"PK")
     assert "thesis_draft.docx" in response.headers["content-disposition"]
+
+
+def test_persisted_thesis_cover_settings_are_written_into_generated_docx(
+    tmp_path: Path,
+) -> None:
+    file_path = tmp_path / "brief.docx"
+    document = Document()
+    document.add_heading("图书管理系统", level=1)
+    document.add_paragraph("功能要求：用户登录、图书查询、借阅管理")
+    document.save(file_path)
+
+    settings = Settings(
+        jobs_dir=tmp_path / "jobs",
+        api_key="",
+        base_url="https://example.com/v1",
+        model="gpt-test",
+        settings_file=tmp_path / ".idea2thesis" / "settings.json",
+        database_path=tmp_path / ".idea2thesis" / "jobs.db",
+        secret_key_path=tmp_path / ".idea2thesis" / "secret.key",
+        secret_dir=tmp_path / ".idea2thesis" / "job-secrets",
+    )
+    client = TestClient(create_app(settings))
+    saved = client.put(
+        "/settings",
+        json={
+            "schema_version": "v1alpha1",
+            "global": {
+                "base_url": "https://example.com/v1",
+                "model": "gpt-test",
+                "thesis_cover": {
+                    "school": "示例大学",
+                    "department": "计算机学院",
+                    "major": "软件工程",
+                    "student_name": "张三",
+                    "student_id": "20240001",
+                    "advisor": "李老师",
+                },
+            },
+            "agents": {},
+        },
+    )
+    assert saved.status_code == 200
+
+    with file_path.open("rb") as handle:
+        created = client.post(
+            "/jobs",
+            files={
+                "file": (
+                    "brief.docx",
+                    handle.read(),
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            },
+            data={
+                "config": """
+                {
+                  "schema_version": "v1alpha1",
+                  "global": {
+                    "api_key": "runtime-key",
+                    "base_url": "https://example.com/v1",
+                    "model": "gpt-test"
+                  },
+                  "agents": {}
+                }
+                """
+            },
+        )
+    assert created.status_code == 201
+    job_id = created.json()["job_id"]
+
+    worker = AsyncJobWorker(settings)
+    assert worker.run_once() is True
+
+    generated_docx = (
+        tmp_path / "jobs" / job_id / "artifacts" / "agent" / "writer" / "thesis_draft.docx"
+    )
+    thesis_document = Document(generated_docx)
+    paragraphs = "\n".join(
+        paragraph.text.strip()
+        for paragraph in thesis_document.paragraphs
+        if paragraph.text.strip()
+    )
+    assert "学校：示例大学" in paragraphs
+    assert "学院：计算机学院" in paragraphs
+    assert "学生姓名：张三" in paragraphs
+    assert "学号：20240001" in paragraphs
+    assert "指导教师：李老师" in paragraphs

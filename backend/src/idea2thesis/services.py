@@ -61,6 +61,7 @@ class ApplicationService:
                 "global": {
                     "base_url": self.settings.base_url,
                     "model": self.settings.model,
+                    "thesis_cover": {},
                 },
                 "agents": {},
             }

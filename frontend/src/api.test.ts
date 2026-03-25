@@ -61,7 +61,18 @@ describe("api helpers", () => {
       ok: true,
       json: async () => ({
         schema_version: "v1alpha1",
-        global: { base_url: "https://example.com/v1", model: "gpt-test" },
+        global: {
+          base_url: "https://example.com/v1",
+          model: "gpt-test",
+          thesis_cover: {
+            school: "示例大学",
+            department: "计算机学院",
+            major: "软件工程",
+            student_name: "张三",
+            student_id: "20240001",
+            advisor: "李老师"
+          }
+        },
         agents: {},
         api_key_configured: false
       })
@@ -79,7 +90,18 @@ describe("api helpers", () => {
       ok: true,
       json: async () => ({
         schema_version: "v1alpha1",
-        global: { base_url: "https://example.com/v1", model: "gpt-test" },
+        global: {
+          base_url: "https://example.com/v1",
+          model: "gpt-test",
+          thesis_cover: {
+            school: "示例大学",
+            department: "计算机学院",
+            major: "软件工程",
+            student_name: "张三",
+            student_id: "20240001",
+            advisor: "李老师"
+          }
+        },
         agents: {},
         api_key_configured: true
       })
@@ -89,7 +111,15 @@ describe("api helpers", () => {
       schema_version: "v1alpha1",
       global: {
         base_url: "https://example.com/v1",
-        model: "gpt-test"
+        model: "gpt-test",
+        thesis_cover: {
+          school: "示例大学",
+          department: "计算机学院",
+          major: "软件工程",
+          student_name: "张三",
+          student_id: "20240001",
+          advisor: "李老师"
+        }
       },
       agents: {}
     };

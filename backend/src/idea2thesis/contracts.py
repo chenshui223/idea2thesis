@@ -226,6 +226,7 @@ class JobRuntimeConfig(VersionedModel):
 class PersistedGlobalSettings(BaseModel):
     base_url: str = ""
     model: str = ""
+    thesis_cover: dict[str, str] = Field(default_factory=dict)
 
 
 class PersistedAgentSettings(BaseModel):

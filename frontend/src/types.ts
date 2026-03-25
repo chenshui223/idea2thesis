@@ -37,6 +37,14 @@ export type GlobalSettings = {
   apiKey: string;
   baseUrl: string;
   model: string;
+  thesisCover: {
+    school: string;
+    department: string;
+    major: string;
+    studentName: string;
+    studentId: string;
+    advisor: string;
+  };
 };
 
 export type AgentSettings = {
@@ -69,6 +77,14 @@ export type PersistedSettings = {
   global: {
     base_url: string;
     model: string;
+    thesis_cover: {
+      school: string;
+      department: string;
+      major: string;
+      student_name: string;
+      student_id: string;
+      advisor: string;
+    };
   };
   agents: Record<
     string,

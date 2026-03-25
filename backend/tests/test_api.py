@@ -47,6 +47,14 @@ def test_put_settings_persists_non_sensitive_values_across_restart(tmp_path: Pat
             "global": {
                 "base_url": "https://api.example.com/v1",
                 "model": "gpt-override",
+                "thesis_cover": {
+                    "school": "示例大学",
+                    "department": "计算机学院",
+                    "major": "软件工程",
+                    "student_name": "张三",
+                    "student_id": "20240001",
+                    "advisor": "李老师"
+                }
             },
             "agents": {
                 "coder": {
@@ -60,12 +68,14 @@ def test_put_settings_persists_non_sensitive_values_across_restart(tmp_path: Pat
 
     assert response.status_code == 200
     assert response.json()["global"]["base_url"] == "https://api.example.com/v1"
+    assert response.json()["global"]["thesis_cover"]["school"] == "示例大学"
 
     reloaded_client = build_client(tmp_path)
     reloaded = reloaded_client.get("/settings")
     assert reloaded.status_code == 200
     body = reloaded.json()
     assert body["global"]["base_url"] == "https://api.example.com/v1"
+    assert body["global"]["thesis_cover"]["student_name"] == "张三"
     assert body["agents"]["coder"]["model"] == "gpt-coder"
 
 

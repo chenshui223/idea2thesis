@@ -97,8 +97,20 @@ def test_run_job_persists_real_stage_artifacts_and_manifest(tmp_path: Path) -> N
     paths = seeded_job_paths(tmp_path, "job-1")
     executor = LocalCommandExecutor(paths.workspace_dir)
 
-    snapshot = orchestrator.run_job("job-1", brief, paths, executor)
-
+    snapshot = orchestrator.run_job(
+        "job-1",
+        brief,
+        paths,
+        executor,
+        thesis_cover={
+            "school": "示例大学",
+            "department": "计算机学院",
+            "major": "软件工程",
+            "student_name": "张三",
+            "student_id": "20240001",
+            "advisor": "李老师",
+        },
+    )
     assert snapshot.status == "completed"
     assert snapshot.stage == "completed"
     assert artifact_json(paths.artifacts_dir / "agent" / "advisor" / "advisor_plan.json")["agent_role"] == "advisor"
@@ -112,8 +124,9 @@ def test_run_job_persists_real_stage_artifacts_and_manifest(tmp_path: Path) -> N
     )
     assert "图书管理系统" in paragraphs
     assert "本科毕业设计（论文）" in paragraphs
-    assert "学生姓名：待填写" in paragraphs
-    assert "学号：待填写" in paragraphs
+    assert "学生姓名：张三" in paragraphs
+    assert "学号：20240001" in paragraphs
+    assert "指导教师：李老师" in paragraphs
     assert "目录" in paragraphs
     assert "目录待在 Word 中更新" in paragraphs
     title_paragraph = next(
