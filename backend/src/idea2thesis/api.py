@@ -18,6 +18,15 @@ def create_router(service: ApplicationService) -> APIRouter:
     def settings_summary() -> dict[str, object]:
         return service.get_settings_summary().model_dump(by_alias=True)
 
+    @router.get("/templates/sample-brief.docx")
+    def download_sample_brief_template() -> FileResponse:
+        template_path = service.get_sample_brief_template_path()
+        return FileResponse(
+            path=template_path,
+            filename="sample-brief.docx",
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+
     @router.put("/settings")
     def update_settings(payload: PersistedSettings) -> dict[str, object]:
         try:

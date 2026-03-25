@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   downloadArtifact,
+  downloadSampleBriefTemplate,
   downloadWorkspaceArchive,
   fetchJob,
   fetchSettings,
@@ -188,6 +189,20 @@ describe("api helpers", () => {
     const result = await downloadWorkspaceArchive("job-1");
 
     expect(fetchMock).toHaveBeenCalledWith("/jobs/job-1/workspace/archive");
+    expect(result).toBe(blob);
+  });
+
+  it("downloadSampleBriefTemplate fetches the sample template endpoint and returns a blob", async () => {
+    const blob = new Blob(["docx body"], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: async () => blob
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await downloadSampleBriefTemplate();
+
+    expect(fetchMock).toHaveBeenCalledWith("/templates/sample-brief.docx");
     expect(result).toBe(blob);
   });
 });

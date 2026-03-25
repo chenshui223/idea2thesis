@@ -194,3 +194,12 @@ def test_workspace_archive_endpoint_returns_not_found_for_missing_job(
     client = build_client(tmp_path)
     response = client.get("/jobs/job-1/workspace/archive")
     assert response.status_code == 404
+
+
+def test_sample_brief_template_endpoint_returns_docx_file(tmp_path: Path) -> None:
+    client = build_client(tmp_path)
+    response = client.get("/templates/sample-brief.docx")
+
+    assert response.status_code == 200
+    assert response.content.startswith(b"PK")
+    assert "sample-brief.docx" in response.headers["content-disposition"]

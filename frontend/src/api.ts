@@ -259,6 +259,14 @@ export async function downloadWorkspaceArchive(jobId: string): Promise<Blob> {
   return response.blob();
 }
 
+export async function downloadSampleBriefTemplate(): Promise<Blob> {
+  const response = await fetch("/templates/sample-brief.docx");
+  if (!response.ok) {
+    throw new Error("failed to download sample brief template");
+  }
+  return response.blob();
+}
+
 export async function openArtifactInFolder(
   jobId: string,
   artifact: ArtifactRef

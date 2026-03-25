@@ -114,6 +114,7 @@ Each job includes:
 
 In the current frontend:
 
+- optionally click `Download Sample Brief` to get a ready-to-run `.docx` example
 - enter a global `API Key`
 - confirm or edit global `Base URL` and `Model`
 - optionally open `Advanced Settings` and configure per-agent overrides

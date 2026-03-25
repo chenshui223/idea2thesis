@@ -1186,4 +1186,70 @@ describe("App history workbench", () => {
     expect(anchorRemove).toHaveBeenCalled();
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:workspace");
   });
+
+  test("upload form can download a sample brief template", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockResolvedValueOnce(mockSettingsResponse());
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        total: 0,
+        items: []
+      })
+    );
+
+    const downloadBlob = new Blob(["sample brief"], {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(downloadBlob, {
+        status: 200,
+        headers: {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        }
+      })
+    );
+
+    const createObjectURL = vi.fn(() => "blob:sample-brief");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(window.URL, "createObjectURL", {
+      value: createObjectURL,
+      configurable: true
+    });
+    Object.defineProperty(window.URL, "revokeObjectURL", {
+      value: revokeObjectURL,
+      configurable: true
+    });
+
+    const anchorClick = vi.fn();
+    const anchorRemove = vi.fn();
+    const originalCreateElement = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tagName: string) => {
+      if (tagName.toLowerCase() === "a") {
+        const anchor = originalCreateElement("a");
+        Object.defineProperty(anchor, "click", {
+          value: anchorClick
+        });
+        Object.defineProperty(anchor, "remove", {
+          value: anchorRemove
+        });
+        return anchor;
+      }
+      return originalCreateElement(tagName);
+    });
+
+    render(<App />);
+
+    await screen.findByRole("button", { name: "Generate Project" });
+    await userEvent.click(
+      screen.getByRole("button", { name: "Download Sample Brief" })
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith("/templates/sample-brief.docx");
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(anchorClick).toHaveBeenCalled();
+    expect(anchorRemove).toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:sample-brief");
+  });
 });

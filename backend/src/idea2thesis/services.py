@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 from zipfile import ZIP_DEFLATED, ZipFile
 
+from docx import Document
 from pydantic import ValidationError
 
 from idea2thesis.config import Settings, atomic_write_text, validate_base_url
@@ -210,6 +211,33 @@ class ApplicationService:
                 if candidate.is_file():
                     archive.write(candidate, Path("workspace") / relative_path)
         return archive_path
+
+    def get_sample_brief_template_path(self) -> Path:
+        template_dir = self.settings.settings_file.parent / "templates"
+        template_dir.mkdir(parents=True, exist_ok=True)
+        template_path = template_dir / "sample-brief.docx"
+
+        document = Document()
+        document.add_heading("计算机软件类毕业设计论文设计书", level=1)
+        document.add_paragraph("题目：学生成绩分析与可视化系统")
+        document.add_paragraph("项目类型：数据分析/算法类")
+        document.add_paragraph(
+            "项目背景：面向本地单用户场景，支持导入成绩数据、统计分析、可视化展示与结果导出。"
+        )
+        document.add_paragraph(
+            "功能要求：用户登录；成绩导入；统计分析；图表展示；报告导出。"
+        )
+        document.add_paragraph(
+            "技术要求：Python；FastAPI 或 Flask；SQLite；可视化图表；本地部署。"
+        )
+        document.add_paragraph(
+            "论文要求：包含摘要、需求分析、系统设计、关键实现、测试验证、结论。"
+        )
+        document.add_paragraph(
+            "验收要求：项目可运行，含 README、测试命令、论文初稿与答辩材料。"
+        )
+        document.save(template_path)
+        return template_path
 
     def open_artifact_in_file_manager(self, job_id: str, path: str) -> dict[str, object]:
         target_path = self._resolve_registered_artifact_path(job_id, path)

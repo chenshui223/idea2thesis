@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   deleteJob,
   downloadArtifact,
+  downloadSampleBriefTemplate,
   downloadWorkspaceArchive,
   fetchArtifactContent,
   fetchJobDetail,
@@ -276,8 +277,10 @@ export default function App() {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
+  const [sampleBriefBusy, setSampleBriefBusy] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [sampleBriefError, setSampleBriefError] = useState("");
   const [historyError, setHistoryError] = useState("");
   const [detailError, setDetailError] = useState("");
   const [eventsError, setEventsError] = useState("");
@@ -731,6 +734,23 @@ export default function App() {
     }
   };
 
+  const handleDownloadSampleBrief = async () => {
+    setSampleBriefBusy(true);
+    setSampleBriefError("");
+    try {
+      const blob = await downloadSampleBriefTemplate();
+      triggerBlobDownload(blob, "sample-brief.docx");
+    } catch (error) {
+      setSampleBriefError(
+        error instanceof Error
+          ? error.message
+          : "failed to download sample brief template"
+      );
+    } finally {
+      setSampleBriefBusy(false);
+    }
+  };
+
   const handleOpenArtifactInFolder = async () => {
     if (!currentJobId || !selectedArtifact) {
       return;
@@ -801,7 +821,12 @@ export default function App() {
         disabled={isSubmitting || isPolling}
         loading={isSubmitting || isPolling}
         errorMessage={errorMessage}
+        sampleBriefBusy={sampleBriefBusy}
+        sampleBriefErrorMessage={sampleBriefError}
         onFileChange={setSelectedFile}
+        onDownloadSampleBrief={() => {
+          void handleDownloadSampleBrief();
+        }}
         onSubmit={() => {
           void handleSubmit();
         }}
