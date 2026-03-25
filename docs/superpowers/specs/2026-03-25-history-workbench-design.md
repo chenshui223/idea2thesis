@@ -92,7 +92,7 @@ The right-side panel should display:
 
 1. User selects an existing job.
 2. User clicks `Rerun`.
-3. Frontend loads the old job’s non-sensitive runtime config into the top settings form.
+3. Frontend loads the old job’s non-sensitive runtime config from `GET /jobs/{job_id}` into the top settings form.
 4. All API key fields remain blank.
 5. User enters a fresh global API key and optionally agent-specific API keys.
 6. Frontend calls `POST /jobs/{job_id}/rerun`.
@@ -183,8 +183,16 @@ Continue returning durable detail state, plus any metadata needed for the workbe
 - `workspace_path`
 - `input_file_path`
 - `error_message` if present
+- rerun preload fields derived from persisted non-sensitive runtime inputs:
+  - global `base_url`
+  - global `model`
+  - per-agent `useGlobal`
+  - per-agent `base_url`
+  - per-agent `model`
 
 Must not return runtime secrets.
+
+This endpoint is also the source used by the frontend to repopulate the top settings form before a rerun.
 
 ### `GET /jobs/{job_id}/events`
 
