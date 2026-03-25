@@ -464,6 +464,10 @@ class SupervisorOrchestrator:
             "conclusion, design_report。",
         )
         writer_payload = _extract_json_payload(writer_completion)
+        _write_workspace_files_from_payload(
+            workspace_dir=paths.workspace_dir,
+            payload=writer_payload,
+        )
         thesis_sections = _payload_string_list(writer_payload, "sections") or [
             "摘要",
             "需求分析",

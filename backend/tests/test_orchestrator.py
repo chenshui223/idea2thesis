@@ -503,3 +503,155 @@ def test_provider_workspace_file_generation_blocks_path_escape(tmp_path: Path) -
     assert not (paths.root_dir / "outside.txt").exists()
     assert code_summary["generated_files"] == ["README.md"]
     assert "deterministic scaffold" in code_summary["known_limitations"][0]
+
+
+def test_provider_writer_payload_writes_supporting_documents(tmp_path: Path) -> None:
+    orchestrator = SupervisorOrchestrator(
+        provider_factory=lambda config: PromptRouterProvider(
+            {
+                "毕业设计指导老师 agent": """
+                {
+                  "summary": "advisor ok"
+                }
+                """,
+                "你是 coder agent": """
+                {
+                  "summary": "coder ok"
+                }
+                """,
+                "你是 writer agent": """
+                {
+                  "summary": "writer published docs",
+                  "title": "图书管理系统论文初稿",
+                  "abstract": "本文围绕本地单用户毕业设计生成流程展开。",
+                  "requirements_analysis": "需求覆盖文档解析、代码生成、论文输出。",
+                  "system_design": "系统由 advisor、coder、writer 和 reviewer 协同完成。",
+                  "implementation_overview": "通过 provider 结果直接落盘到 workspace。",
+                  "testing_validation": "采用本地命令与文档校验联合验证。",
+                  "conclusion": "该流程可作为毕业设计初稿生产基座。",
+                  "workspace_files": [
+                    {
+                      "path": "docs/答辩提纲.md",
+                      "content": "# 答辩提纲\\n\\n- 项目背景\\n- 系统设计\\n- 实验结果\\n"
+                    },
+                    {
+                      "path": "docs/交付说明.md",
+                      "content": "# 交付说明\\n\\n包含代码、论文初稿与验证结果。\\n"
+                    }
+                  ],
+                  "design_report": {
+                    "summary": "design ok",
+                    "goal": "固化文档交付模板。",
+                    "module_breakdown": ["advisor", "coder", "writer"],
+                    "delivery_notes": "交付需附带答辩提纲与交付说明。"
+                  }
+                }
+                """,
+            }
+        )
+    )
+    brief = sample_brief(title="图书管理系统")
+    paths = seeded_job_paths(tmp_path, "job-9")
+    executor = LocalCommandExecutor(paths.workspace_dir)
+
+    snapshot = orchestrator.run_job(
+        "job-9",
+        brief,
+        paths,
+        executor,
+        provider_configs={
+            "advisor": AgentProviderConfig(
+                role="advisor",
+                api_key="advisor-key",
+                base_url="https://example.com/v1",
+                model="gpt-advisor",
+            ),
+            "coder": AgentProviderConfig(
+                role="coder",
+                api_key="coder-key",
+                base_url="https://example.com/v1",
+                model="gpt-coder",
+            ),
+            "writer": AgentProviderConfig(
+                role="writer",
+                api_key="writer-key",
+                base_url="https://example.com/v1",
+                model="gpt-writer",
+            ),
+        },
+    )
+
+    thesis_text = artifact_markdown(paths.artifacts_dir / "agent" / "writer" / "thesis_draft.md")
+    design_text = artifact_markdown(paths.artifacts_dir / "agent" / "writer" / "design_report.md")
+    defense_outline = artifact_markdown(paths.workspace_dir / "docs" / "答辩提纲.md")
+    delivery_notes = artifact_markdown(paths.workspace_dir / "docs" / "交付说明.md")
+
+    assert snapshot.status == "completed"
+    assert "本文围绕本地单用户毕业设计生成流程展开。" in thesis_text
+    assert "交付需附带答辩提纲与交付说明。" in design_text
+    assert defense_outline.startswith("# 答辩提纲")
+    assert "包含代码、论文初稿与验证结果。" in delivery_notes
+
+
+def test_provider_writer_workspace_file_generation_blocks_path_escape(tmp_path: Path) -> None:
+    orchestrator = SupervisorOrchestrator(
+        provider_factory=lambda config: PromptRouterProvider(
+            {
+                "毕业设计指导老师 agent": """
+                {
+                  "summary": "advisor ok"
+                }
+                """,
+                "你是 coder agent": """
+                {
+                  "summary": "coder ok"
+                }
+                """,
+                "你是 writer agent": """
+                {
+                  "summary": "writer attempted escape",
+                  "abstract": "论文摘要。",
+                  "workspace_files": [
+                    {
+                      "path": "../writer-outside.md",
+                      "content": "escaped"
+                    }
+                  ]
+                }
+                """,
+            }
+        )
+    )
+    brief = sample_brief(title="图书管理系统")
+    paths = seeded_job_paths(tmp_path, "job-10")
+    executor = LocalCommandExecutor(paths.workspace_dir)
+
+    snapshot = orchestrator.run_job(
+        "job-10",
+        brief,
+        paths,
+        executor,
+        provider_configs={
+            "advisor": AgentProviderConfig(
+                role="advisor",
+                api_key="advisor-key",
+                base_url="https://example.com/v1",
+                model="gpt-advisor",
+            ),
+            "coder": AgentProviderConfig(
+                role="coder",
+                api_key="coder-key",
+                base_url="https://example.com/v1",
+                model="gpt-coder",
+            ),
+            "writer": AgentProviderConfig(
+                role="writer",
+                api_key="writer-key",
+                base_url="https://example.com/v1",
+                model="gpt-writer",
+            ),
+        },
+    )
+
+    assert snapshot.status == "completed"
+    assert not (paths.root_dir / "writer-outside.md").exists()
