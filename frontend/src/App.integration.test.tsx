@@ -774,6 +774,11 @@ describe("App history workbench", () => {
         (element.textContent?.includes("workspace/src/pipeline.py") ?? false)
       )
     );
+    expect(
+      within(generatedCodeSection as HTMLElement).getByRole("button", {
+        name: /workspace\/src\/pipeline\.py/i
+      })
+    ).toHaveAttribute("aria-current", "true");
     expect(await screen.findByText("Artifact Preview")).toBeInTheDocument();
     expect(screen.getByText("Code Preview")).toBeInTheDocument();
     expect(screen.getByText("File: pipeline.py")).toBeInTheDocument();
@@ -792,6 +797,11 @@ describe("App history workbench", () => {
     expect(screen.queryByText("# 答辩提纲")).not.toBeInTheDocument();
     expect(screen.getByText((_, element) => element?.tagName.toLowerCase() === "article" && (element.textContent?.includes("项目背景") ?? false))).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Clear Preview" }));
+    expect(
+      within(generatedDocsSection as HTMLElement).getByRole("button", {
+        name: /workspace\/docs\/答辩提纲\.md/i
+      })
+    ).not.toHaveAttribute("aria-current");
     expect(screen.getByText("Preview status: idle")).toBeInTheDocument();
     expect(screen.getByText("Select an artifact to preview.")).toBeInTheDocument();
     fetchMock.mockResolvedValueOnce(new Response("boom", { status: 500 }) as Response);

@@ -251,6 +251,7 @@ export default function App() {
   const [artifactPreviewContent, setArtifactPreviewContent] = useState("");
   const [artifactPreviewTruncated, setArtifactPreviewTruncated] = useState(false);
   const [artifactPreviewError, setArtifactPreviewError] = useState("");
+  const [selectedArtifactPath, setSelectedArtifactPath] = useState("");
   const pollTimerRef = useRef<number | null>(null);
   const selectedJobId = selectedJob?.job_id ?? snapshot.job_id;
 
@@ -607,6 +608,7 @@ export default function App() {
   };
 
   const handleClearArtifactPreview = () => {
+    setSelectedArtifactPath("");
     setArtifactPreviewTitle("");
     setArtifactPreviewFileName("");
     setArtifactPreviewKind("");
@@ -619,6 +621,7 @@ export default function App() {
     if (!currentJobId) {
       return;
     }
+    setSelectedArtifactPath(artifact.path);
     setArtifactPreviewTitle(artifact.path);
     setArtifactPreviewFileName(artifact.path.split("/").pop() ?? "");
     setArtifactPreviewKind(artifact.kind);
@@ -712,6 +715,7 @@ export default function App() {
       <AgentBoard agents={snapshot.agents} />
       <ArtifactList
         artifacts={snapshot.artifacts}
+        selectedArtifactPath={selectedArtifactPath}
         onSelectArtifact={(artifact) => {
           void handleSelectArtifact(artifact);
         }}

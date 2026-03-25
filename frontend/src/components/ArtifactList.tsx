@@ -2,6 +2,7 @@ import type { ArtifactRef } from "../types";
 
 type ArtifactListProps = {
   artifacts: ArtifactRef[];
+  selectedArtifactPath?: string;
   onSelectArtifact: (artifact: ArtifactRef) => void;
 };
 
@@ -60,7 +61,16 @@ export function ArtifactList(props: ArtifactListProps) {
                 title={artifact.path}
                 onClick={() => props.onSelectArtifact(artifact)}
               >
-                <button type="button" onClick={() => props.onSelectArtifact(artifact)}>
+                <button
+                  type="button"
+                  aria-current={
+                    props.selectedArtifactPath === artifact.path ? "true" : undefined
+                  }
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    props.onSelectArtifact(artifact);
+                  }}
+                >
                   <strong>{artifact.kind}</strong>: {formatArtifactPath(artifact.path)}
                 </button>
               </li>
