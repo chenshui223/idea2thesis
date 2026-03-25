@@ -705,6 +705,12 @@ describe("App history workbench", () => {
     const artifactsSection = screen.getByRole("heading", { name: "Artifacts" }).closest("section");
     expect(artifactsSection).not.toBeNull();
     expect(
+      within(artifactsSection as HTMLElement).getByRole("heading", { name: "Generated Code" })
+    ).toBeInTheDocument();
+    expect(
+      within(artifactsSection as HTMLElement).getByRole("heading", { name: "Generated Docs" })
+    ).toBeInTheDocument();
+    expect(
       within(artifactsSection as HTMLElement).getByText((_, element) =>
         element?.tagName.toLowerCase() === "li" &&
         (element.textContent?.includes("/jobs/job-1/artifacts/final/job_manifest.json") ??
@@ -719,6 +725,26 @@ describe("App history workbench", () => {
     ).toBeInTheDocument();
     expect(
       within(artifactsSection as HTMLElement).getByText((_, element) =>
+        element?.tagName.toLowerCase() === "li" &&
+        (element.textContent?.includes("/jobs/job-1/workspace/docs/答辩提纲.md") ?? false)
+      )
+    ).toBeInTheDocument();
+    const generatedCodeSection = within(artifactsSection as HTMLElement)
+      .getByRole("heading", { name: "Generated Code" })
+      .closest("section");
+    const generatedDocsSection = within(artifactsSection as HTMLElement)
+      .getByRole("heading", { name: "Generated Docs" })
+      .closest("section");
+    expect(generatedCodeSection).not.toBeNull();
+    expect(generatedDocsSection).not.toBeNull();
+    expect(
+      within(generatedCodeSection as HTMLElement).getByText((_, element) =>
+        element?.tagName.toLowerCase() === "li" &&
+        (element.textContent?.includes("/jobs/job-1/workspace/src/pipeline.py") ?? false)
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(generatedDocsSection as HTMLElement).getByText((_, element) =>
         element?.tagName.toLowerCase() === "li" &&
         (element.textContent?.includes("/jobs/job-1/workspace/docs/答辩提纲.md") ?? false)
       )
