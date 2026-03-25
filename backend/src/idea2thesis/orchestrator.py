@@ -5,11 +5,14 @@ from pathlib import Path
 
 from idea2thesis.agents import build_agent_tasks, passing_reviewer_results
 from idea2thesis.contracts import (
+    AgentRuntimeOverride,
     AgentResult,
     AgentStatus,
     ArtifactRef,
     ExecutionReport,
+    GlobalRuntimeConfig,
     JobPlan,
+    JobRuntimeConfig,
     JobSnapshot,
     ParsedBrief,
 )
@@ -19,6 +22,38 @@ from idea2thesis.storage import JobPaths
 
 
 class SupervisorOrchestrator:
+    def resolve_effective_agent_configs(
+        self, runtime_config: JobRuntimeConfig
+    ) -> dict[str, GlobalRuntimeConfig]:
+        from idea2thesis.agents import ROLE_SEQUENCE
+
+        role_set = set(ROLE_SEQUENCE)
+        unknown_roles = sorted(set(runtime_config.agents) - role_set)
+        if unknown_roles:
+            raise ValueError(f"unknown agent role: {unknown_roles[0]}")
+
+        resolved: dict[str, GlobalRuntimeConfig] = {}
+        for role in ROLE_SEQUENCE:
+            override = runtime_config.agents.get(role, AgentRuntimeOverride())
+            effective = (
+                GlobalRuntimeConfig(
+                    api_key=runtime_config.global_config.api_key,
+                    base_url=runtime_config.global_config.base_url,
+                    model=runtime_config.global_config.model,
+                )
+                if override.use_global
+                else GlobalRuntimeConfig(
+                    api_key=override.api_key or runtime_config.global_config.api_key,
+                    base_url=override.base_url or runtime_config.global_config.base_url,
+                    model=override.model or runtime_config.global_config.model,
+                )
+            )
+            for field_name in ("api_key", "base_url", "model"):
+                if not getattr(effective, field_name).strip():
+                    raise ValueError(f"missing effective {field_name} for agent {role}")
+            resolved[role] = effective
+        return resolved
+
     def build_plan(self, brief: ParsedBrief) -> JobPlan:
         category = (
             "data_analysis_project"

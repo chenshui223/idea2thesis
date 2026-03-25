@@ -15,6 +15,7 @@ export function SettingsForm(props: SettingsFormProps) {
         API Key
         <input
           aria-label="API Key"
+          type="password"
           value={props.apiKey}
           onChange={(event) => props.onApiKeyChange(event.target.value)}
         />

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 SCHEMA_VERSION = "v1alpha1"
 
@@ -100,6 +100,48 @@ class ExecutionReport(VersionedModel):
     stdout_path: str = ""
     stderr_path: str = ""
     policy_decision: str = ""
+
+
+class GlobalRuntimeConfig(BaseModel):
+    api_key: str = ""
+    base_url: str = ""
+    model: str = ""
+
+
+class AgentRuntimeOverride(BaseModel):
+    use_global: bool = True
+    api_key: str = ""
+    base_url: str = ""
+    model: str = ""
+
+
+class JobRuntimeConfig(VersionedModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    global_config: GlobalRuntimeConfig = Field(alias="global")
+    agents: dict[str, AgentRuntimeOverride] = Field(default_factory=dict)
+
+
+class PersistedGlobalSettings(BaseModel):
+    base_url: str = ""
+    model: str = ""
+
+
+class PersistedAgentSettings(BaseModel):
+    use_global: bool = True
+    base_url: str = ""
+    model: str = ""
+
+
+class PersistedSettings(VersionedModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    global_config: PersistedGlobalSettings = Field(alias="global")
+    agents: dict[str, PersistedAgentSettings] = Field(default_factory=dict)
+
+
+class SettingsResponse(PersistedSettings):
+    api_key_configured: bool = False
 
 
 class AgentStatus(BaseModel):

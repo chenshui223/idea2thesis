@@ -22,6 +22,18 @@ Backend configuration uses:
 - `IDEA2THESIS_MODEL`
 - `IDEA2THESIS_ORGANIZATION` (optional)
 
+The web app now supports two configuration layers:
+
+- global `API Key`, `Base URL`, and `Model`
+- optional per-agent overrides behind `Advanced Settings`
+
+Persistence rules:
+
+- `API Key` is runtime-only and is never persisted
+- `Base URL` and `Model` are persisted
+- per-agent override `use_global`, `Base URL`, and `Model` are persisted
+- persisted non-sensitive settings are written by the backend to a local JSON file and restored on reload
+
 ## Backend Setup
 
 ```bash
@@ -73,9 +85,12 @@ Each job includes:
 
 In the current frontend:
 
+- enter a global `API Key`
+- confirm or edit global `Base URL` and `Model`
+- optionally open `Advanced Settings` and configure per-agent overrides
 - select a `.docx` brief
 - click `Generate Project`
-- the UI sends a real `POST /jobs` request
+- the UI sends a real `POST /jobs` request with the uploaded file plus runtime config JSON
 - the dashboard then polls `GET /jobs/{job_id}` until the job reaches a terminal result
 
 ## Verification Evidence
