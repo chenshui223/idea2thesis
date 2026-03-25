@@ -5,6 +5,7 @@ type ArtifactPreviewProps = {
   content: string;
   truncated: boolean;
   errorMessage: string;
+  onClear: () => void;
 };
 
 export function ArtifactPreview(props: ArtifactPreviewProps) {
@@ -24,6 +25,7 @@ export function ArtifactPreview(props: ArtifactPreviewProps) {
       ? "Code Preview"
       : "Document Preview"
     : "Artifact Preview";
+  const isCodePreview = previewLabel === "Code Preview";
 
   return (
     <section>
@@ -33,8 +35,13 @@ export function ArtifactPreview(props: ArtifactPreviewProps) {
       {props.fileName ? <p>File: {props.fileName}</p> : null}
       {props.artifactKind ? <p>Artifact type: {props.artifactKind}</p> : null}
       <p>Preview status: {previewStatus}</p>
+      <button type="button" onClick={props.onClear}>
+        Clear Preview
+      </button>
       {props.errorMessage ? <p>{props.errorMessage}</p> : null}
-      {props.content ? <pre>{props.content}</pre> : null}
+      {props.content ? (
+        isCodePreview ? <pre>{props.content}</pre> : <article>{props.content}</article>
+      ) : null}
       {props.truncated ? <p>Preview truncated.</p> : null}
     </section>
   );

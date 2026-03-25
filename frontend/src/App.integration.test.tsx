@@ -704,6 +704,13 @@ describe("App history workbench", () => {
         truncated: false
       })
     );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        path: "/jobs/job-1/workspace/docs/答辩提纲.md",
+        content: "# 答辩提纲\n\n- 项目背景\n- 系统设计\n",
+        truncated: false
+      })
+    );
 
     render(<App />);
 
@@ -773,6 +780,20 @@ describe("App history workbench", () => {
     expect(screen.getByText("Artifact type: workspace_file")).toBeInTheDocument();
     expect(screen.getByText("Preview status: complete")).toBeInTheDocument();
     expect(screen.getByText("print('provider generated')")).toBeInTheDocument();
+    await userEvent.click(
+      within(generatedDocsSection as HTMLElement).getByText((_, element) =>
+        element?.tagName.toLowerCase() === "li" &&
+        (element.textContent?.includes("workspace/docs/答辩提纲.md") ?? false)
+      )
+    );
+    expect(await screen.findByText("Document Preview")).toBeInTheDocument();
+    expect(await screen.findByText("File: 答辩提纲.md")).toBeInTheDocument();
+    expect(screen.getByText("Preview status: complete")).toBeInTheDocument();
+    expect(screen.queryByText("# 答辩提纲")).not.toBeInTheDocument();
+    expect(screen.getByText((_, element) => element?.tagName.toLowerCase() === "article" && (element.textContent?.includes("项目背景") ?? false))).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Clear Preview" }));
+    expect(screen.getByText("Preview status: idle")).toBeInTheDocument();
+    expect(screen.getByText("Select an artifact to preview.")).toBeInTheDocument();
     fetchMock.mockResolvedValueOnce(new Response("boom", { status: 500 }) as Response);
     await userEvent.click(
       within(generatedDocsSection as HTMLElement).getByText((_, element) =>

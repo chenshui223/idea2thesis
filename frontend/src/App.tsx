@@ -606,6 +606,15 @@ export default function App() {
     setHistoryQuery((current) => ({ ...current, ...patch }));
   };
 
+  const handleClearArtifactPreview = () => {
+    setArtifactPreviewTitle("");
+    setArtifactPreviewFileName("");
+    setArtifactPreviewKind("");
+    setArtifactPreviewContent("");
+    setArtifactPreviewTruncated(false);
+    setArtifactPreviewError("");
+  };
+
   const handleSelectArtifact = async (artifact: ArtifactRef) => {
     if (!currentJobId) {
       return;
@@ -714,6 +723,7 @@ export default function App() {
         content={artifactPreviewContent}
         truncated={artifactPreviewTruncated}
         errorMessage={artifactPreviewError}
+        onClear={handleClearArtifactPreview}
       />
       <ValidationReportViewer
         validationState={snapshot.validation_state}
