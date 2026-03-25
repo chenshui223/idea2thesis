@@ -6,6 +6,7 @@ node_modules/
 dist/
 coverage/
 jobs/
+.idea2thesis/
 .env
 .superpowers/
 backend/.coverage

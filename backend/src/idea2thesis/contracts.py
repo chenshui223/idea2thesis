@@ -155,11 +155,52 @@ class ArtifactRef(BaseModel):
     path: str
 
 
+class JobListItem(VersionedModel):
+    job_id: str
+    brief_title: str
+    status: Literal[
+        "pending",
+        "running",
+        "completed",
+        "failed",
+        "blocked",
+        "interrupted",
+    ]
+    stage: str
+    updated_at: str
+    created_at: str
+    final_disposition: Literal[
+        "pending",
+        "completed",
+        "failed",
+        "blocked",
+        "interrupted",
+    ]
+
+
+class JobListResponse(VersionedModel):
+    items: list[JobListItem] = Field(default_factory=list)
+    total: int = 0
+
+
 class JobSnapshot(VersionedModel):
     job_id: str
     stage: str
-    status: Literal["pending", "running", "completed", "failed", "blocked"]
+    status: Literal[
+        "pending",
+        "running",
+        "completed",
+        "failed",
+        "blocked",
+        "interrupted",
+    ]
     agents: list[AgentStatus] = Field(default_factory=list)
     artifacts: list[ArtifactRef] = Field(default_factory=list)
     validation_state: Literal["pending", "running", "completed", "blocked"]
-    final_disposition: Literal["pending", "completed", "failed", "blocked"]
+    final_disposition: Literal[
+        "pending",
+        "completed",
+        "failed",
+        "blocked",
+        "interrupted",
+    ]

@@ -8,6 +8,8 @@ from pydantic import ValidationError
 
 from idea2thesis.config import Settings, atomic_write_text, validate_base_url
 from idea2thesis.contracts import (
+    JobListItem,
+    JobListResponse,
     JobRuntimeConfig,
     JobSnapshot,
     ParsedBrief,
@@ -15,10 +17,13 @@ from idea2thesis.contracts import (
     SettingsResponse,
     SchemaCompatibilityError,
 )
+from idea2thesis.db import initialize_database
 from idea2thesis.executor import LocalCommandExecutor
 from idea2thesis.git_ops import create_milestone_commit, initialize_repository
+from idea2thesis.job_store import JobStore
 from idea2thesis.orchestrator import SupervisorOrchestrator
 from idea2thesis.parser import parse_brief
+from idea2thesis.secrets import JobSecretEnvelope, delete_job_secret, write_job_secret
 from idea2thesis.storage import JobPaths, JobStorage
 
 
@@ -31,6 +36,8 @@ class ApplicationService:
         self.settings = settings
         self.storage = JobStorage(settings.jobs_dir)
         self.orchestrator = SupervisorOrchestrator()
+        initialize_database(settings)
+        self.job_store = JobStore(settings)
 
     def get_settings_summary(self) -> SettingsResponse:
         persisted = self.get_persisted_settings()
@@ -80,28 +87,71 @@ class ApplicationService:
     def create_job(
         self, file_name: str, file_bytes: bytes, runtime_config: JobRuntimeConfig
     ) -> JobSnapshot:
-        self.orchestrator.resolve_effective_agent_configs(runtime_config)
         job_id = uuid4().hex[:12]
         paths = self.storage.create_job_workspace(job_id)
-        safe_name = Path(file_name).name or "brief.docx"
-        input_path = paths.input_dir / safe_name
-        input_path.write_bytes(file_bytes)
+        secret_path: Path | None = None
+        try:
+            self.orchestrator.resolve_effective_agent_configs(runtime_config)
+            safe_name = Path(file_name).name or "brief.docx"
+            input_path = paths.input_dir / safe_name
+            input_path.write_bytes(file_bytes)
 
-        brief = parse_brief(input_path)
-        self._write_parsed_brief(paths, brief)
+            brief = parse_brief(input_path)
+            self._write_parsed_brief(paths, brief)
 
-        initialize_repository(paths.workspace_dir)
-        executor = LocalCommandExecutor(paths.workspace_dir)
-        snapshot = self.orchestrator.run_job(job_id, brief, paths, executor)
-        self._write_snapshot(paths, snapshot)
-        create_milestone_commit(paths.workspace_dir, "feat: initialize generated workspace")
-        return snapshot
+            secret_path = write_job_secret(
+                self.settings,
+                job_id,
+                JobSecretEnvelope(
+                    global_api_key=runtime_config.global_config.api_key,
+                    per_agent_api_keys={
+                        role: override.api_key
+                        for role, override in runtime_config.agents.items()
+                        if override.api_key.strip()
+                    },
+                ),
+            )
+
+            return self.job_store.create_job(
+                job_id=job_id,
+                brief_title=brief.title,
+                input_file_path=str(input_path),
+                workspace_path=str(paths.workspace_dir),
+                secret_file_path=str(secret_path),
+                runtime_inputs={
+                    "global_base_url": runtime_config.global_config.base_url,
+                    "global_model": runtime_config.global_config.model,
+                    "agents_json": json.dumps(
+                        runtime_config.model_dump(by_alias=True)["agents"],
+                        ensure_ascii=False,
+                    ),
+                    "api_key_required": True,
+                },
+                agents=[
+                    task.role
+                    for task in self.orchestrator.build_plan(brief).tasks
+                ],
+            )
+        except Exception:
+            if secret_path is not None:
+                delete_job_secret(secret_path)
+            if paths.root_dir.exists():
+                for path in sorted(paths.root_dir.rglob("*"), reverse=True):
+                    if path.is_file():
+                        path.unlink(missing_ok=True)
+                    elif path.is_dir():
+                        path.rmdir()
+                paths.root_dir.rmdir()
+            raise
 
     def get_job(self, job_id: str) -> JobSnapshot | None:
-        snapshot_path = self._snapshot_path(job_id)
-        if not snapshot_path.exists():
+        try:
+            return self.job_store.get_job(job_id)
+        except KeyError:
             return None
-        return JobSnapshot.model_validate_json(snapshot_path.read_text(encoding="utf-8"))
+
+    def list_jobs(self) -> JobListResponse:
+        return self.job_store.list_jobs()
 
     def _write_parsed_brief(self, paths: JobPaths, brief: ParsedBrief) -> None:
         parsed_path = paths.parsed_dir / "brief.json"

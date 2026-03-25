@@ -13,6 +13,9 @@ def build_client(tmp_path: Path, api_key: str = "") -> TestClient:
         base_url="https://example.com/v1",
         model="gpt-test",
         settings_file=tmp_path / ".idea2thesis" / "settings.json",
+        database_path=tmp_path / ".idea2thesis" / "jobs.db",
+        secret_key_path=tmp_path / ".idea2thesis" / "secret.key",
+        secret_dir=tmp_path / ".idea2thesis" / "job-secrets",
     )
     return TestClient(create_app(settings))
 
@@ -104,3 +107,13 @@ def test_job_status_endpoint_rejects_path_traversal_job_id(tmp_path: Path) -> No
     client = build_client(tmp_path)
     response = client.get("/jobs/../escape")
     assert response.status_code in {400, 404}
+
+
+def test_get_jobs_lists_durable_jobs(tmp_path: Path) -> None:
+    client = build_client(tmp_path)
+    response = client.get("/jobs")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["items"] == []
+    assert body["total"] == 0

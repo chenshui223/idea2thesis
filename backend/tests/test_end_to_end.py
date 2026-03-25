@@ -20,6 +20,9 @@ def test_create_job_from_uploaded_brief_returns_snapshot_and_artifacts(tmp_path:
         base_url="https://example.com/v1",
         model="gpt-test",
         settings_file=tmp_path / ".idea2thesis" / "settings.json",
+        database_path=tmp_path / ".idea2thesis" / "jobs.db",
+        secret_key_path=tmp_path / ".idea2thesis" / "secret.key",
+        secret_dir=tmp_path / ".idea2thesis" / "job-secrets",
     )
     client = TestClient(create_app(settings))
     with file_path.open("rb") as handle:
@@ -51,11 +54,12 @@ def test_create_job_from_uploaded_brief_returns_snapshot_and_artifacts(tmp_path:
     body = response.json()
     assert body["schema_version"] == "v1alpha1"
     assert body["job_id"]
-    assert body["status"] in {"running", "completed"}
-    assert body["validation_state"] in {"pending", "running", "completed"}
-    assert body["final_disposition"] in {"pending", "completed"}
+    assert body["status"] == "pending"
+    assert body["stage"] == "queued"
+    assert body["validation_state"] == "pending"
+    assert body["final_disposition"] == "pending"
     assert isinstance(body["artifacts"], list)
-    assert any(item["kind"] == "verification_report" for item in body["artifacts"])
+    assert body["artifacts"] == []
 
 
 def test_uploaded_filename_is_sanitized_to_workspace(tmp_path: Path) -> None:
@@ -71,6 +75,9 @@ def test_uploaded_filename_is_sanitized_to_workspace(tmp_path: Path) -> None:
         base_url="https://example.com/v1",
         model="gpt-test",
         settings_file=tmp_path / ".idea2thesis" / "settings.json",
+        database_path=tmp_path / ".idea2thesis" / "jobs.db",
+        secret_key_path=tmp_path / ".idea2thesis" / "secret.key",
+        secret_dir=tmp_path / ".idea2thesis" / "job-secrets",
     )
     client = TestClient(create_app(settings))
     with file_path.open("rb") as handle:
@@ -104,6 +111,8 @@ def test_uploaded_filename_is_sanitized_to_workspace(tmp_path: Path) -> None:
     stored_files = list(jobs_dir.glob("*/input/*"))
     assert stored_files
     assert all(path.parent.parent.parent == jobs_dir for path in stored_files)
+    secret_files = list(settings.secret_dir.glob("*.bin"))
+    assert secret_files
 
 
 def test_job_creation_rejects_unknown_agent_override_role(tmp_path: Path) -> None:
@@ -119,6 +128,9 @@ def test_job_creation_rejects_unknown_agent_override_role(tmp_path: Path) -> Non
         base_url="https://example.com/v1",
         model="gpt-test",
         settings_file=tmp_path / ".idea2thesis" / "settings.json",
+        database_path=tmp_path / ".idea2thesis" / "jobs.db",
+        secret_key_path=tmp_path / ".idea2thesis" / "secret.key",
+        secret_dir=tmp_path / ".idea2thesis" / "job-secrets",
     )
     client = TestClient(create_app(settings))
     with file_path.open("rb") as handle:
@@ -170,6 +182,9 @@ def test_job_creation_rejects_missing_effective_api_key(tmp_path: Path) -> None:
         base_url="https://example.com/v1",
         model="gpt-test",
         settings_file=tmp_path / ".idea2thesis" / "settings.json",
+        database_path=tmp_path / ".idea2thesis" / "jobs.db",
+        secret_key_path=tmp_path / ".idea2thesis" / "secret.key",
+        secret_dir=tmp_path / ".idea2thesis" / "job-secrets",
     )
     client = TestClient(create_app(settings))
     with file_path.open("rb") as handle:

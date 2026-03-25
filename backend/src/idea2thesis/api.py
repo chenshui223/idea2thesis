@@ -37,6 +37,10 @@ def create_router(service: ApplicationService) -> APIRouter:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return snapshot.model_dump()
 
+    @router.get("/jobs")
+    def list_jobs() -> dict[str, object]:
+        return service.list_jobs().model_dump()
+
     @router.get("/jobs/{job_id}")
     def get_job(job_id: str) -> dict[str, object]:
         snapshot = service.get_job(job_id)

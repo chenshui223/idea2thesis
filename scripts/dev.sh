@@ -45,6 +45,9 @@ cleanup() {
   if [[ -n "${BACKEND_PID:-}" ]]; then
     kill "$BACKEND_PID" >/dev/null 2>&1 || true
   fi
+  if [[ -n "${WORKER_PID:-}" ]]; then
+    kill "$WORKER_PID" >/dev/null 2>&1 || true
+  fi
   if [[ -n "${FRONTEND_PID:-}" ]]; then
     kill "$FRONTEND_PID" >/dev/null 2>&1 || true
   fi
@@ -59,13 +62,20 @@ trap cleanup EXIT INT TERM
 BACKEND_PID=$!
 
 (
+  cd "$BACKEND_DIR"
+  exec "$BACKEND_PYTHON" -m idea2thesis.worker
+) &
+WORKER_PID=$!
+
+(
   cd "$FRONTEND_DIR"
   exec npm run dev -- --host 127.0.0.1 --port "$FRONTEND_PORT"
 ) &
 FRONTEND_PID=$!
 
 echo "Backend:  http://127.0.0.1:$BACKEND_PORT"
+echo "Worker:   background process started"
 echo "Frontend: http://127.0.0.1:$FRONTEND_PORT"
-echo "Press Ctrl+C to stop both services."
+echo "Press Ctrl+C to stop all services."
 
-wait "$BACKEND_PID" "$FRONTEND_PID"
+wait "$BACKEND_PID" "$WORKER_PID" "$FRONTEND_PID"

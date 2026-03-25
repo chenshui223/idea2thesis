@@ -63,6 +63,12 @@ After backend and frontend dependencies are installed, start both services with 
 bash scripts/dev.sh
 ```
 
+This starts:
+
+- the FastAPI backend
+- the local async worker process
+- the Vite frontend
+
 Optional environment check:
 
 ```bash
@@ -72,6 +78,15 @@ bash scripts/dev.sh --check
 ## Local Jobs
 
 Generated jobs are stored under `jobs/<job-id>/`.
+
+Local runtime state is stored under `.idea2thesis/`.
+
+This includes:
+
+- `jobs.db` for the async job store
+- machine-local secret material used to hand runtime API keys to the worker
+
+These files are local-only and should not be committed.
 
 Each job includes:
 
@@ -91,6 +106,8 @@ In the current frontend:
 - select a `.docx` brief
 - click `Generate Project`
 - the UI sends a real `POST /jobs` request with the uploaded file plus runtime config JSON
+- the backend returns a durable `pending` job immediately
+- a separate local worker process claims and executes the job
 - the dashboard then polls `GET /jobs/{job_id}` until the job reaches a terminal result
 
 ## Verification Evidence

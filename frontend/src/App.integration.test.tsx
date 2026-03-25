@@ -46,6 +46,19 @@ test("uploads file, shows generating state, and renders returned snapshot", asyn
       json: async () => ({
         schema_version: "v1alpha1",
         job_id: "job-1",
+        stage: "queued",
+        status: "pending",
+        agents: [{ role: "coder", status: "pending", summary: "" }],
+        artifacts: [],
+        validation_state: "pending",
+        final_disposition: "pending"
+      })
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        schema_version: "v1alpha1",
+        job_id: "job-1",
         stage: "running",
         status: "running",
         agents: [{ role: "coder", status: "running", summary: "generating code" }],
@@ -76,6 +89,7 @@ test("uploads file, shows generating state, and renders returned snapshot", asyn
   await user.click(screen.getByRole("button", { name: "Generate Project" }));
 
   expect(screen.getByRole("button", { name: "Generating..." })).toBeInTheDocument();
+  expect(screen.getByText("Current stage: queued")).toBeInTheDocument();
 
   expect(intervalCallbacks).toHaveLength(1);
   const uploadCall = fetchMock.mock.calls[1];
@@ -84,6 +98,12 @@ test("uploads file, shows generating state, and renders returned snapshot", asyn
   expect(configPayload.global.api_key).toBe("runtime-key");
   expect(configPayload.global.base_url).toBe("https://api.openai.com/v1");
   expect(configPayload.global.model).toBe("gpt-4.1-mini");
+  await act(async () => {
+    await intervalCallbacks[0]();
+  });
+  await waitFor(() => {
+    expect(screen.getByText("Current stage: running")).toBeInTheDocument();
+  });
   await act(async () => {
     await intervalCallbacks[0]();
   });

@@ -14,3 +14,4 @@ def test_dev_script_check_mode() -> None:
     )
     assert result.returncode == 0
     assert "Environment check passed." in result.stdout
+    assert "worker" not in result.stderr.lower()

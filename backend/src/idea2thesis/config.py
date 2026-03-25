@@ -27,6 +27,23 @@ class Settings(BaseSettings):
         / ".idea2thesis"
         / "settings.json"
     )
+    database_path: Path = Field(
+        default_factory=lambda: Path(__file__).resolve().parents[3]
+        / ".idea2thesis"
+        / "jobs.db"
+    )
+    secret_key_path: Path = Field(
+        default_factory=lambda: Path(__file__).resolve().parents[3]
+        / ".idea2thesis"
+        / "secret.key"
+    )
+    secret_dir: Path = Field(
+        default_factory=lambda: Path(__file__).resolve().parents[3]
+        / ".idea2thesis"
+        / "job-secrets"
+    )
+    worker_poll_interval_ms: int = 1000
+    worker_heartbeat_interval_ms: int = 5000
 
 
 def validate_base_url(value: str) -> str:
