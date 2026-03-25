@@ -697,6 +697,13 @@ describe("App history workbench", () => {
         ]
       })
     );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        path: "/jobs/job-1/workspace/src/pipeline.py",
+        content: "print('provider generated')\n",
+        truncated: false
+      })
+    );
 
     render(<App />);
 
@@ -752,6 +759,14 @@ describe("App history workbench", () => {
     expect(
       within(generatedCodeSection as HTMLElement).getByTitle("/jobs/job-1/workspace/src/pipeline.py")
     ).toBeInTheDocument();
+    await userEvent.click(
+      within(generatedCodeSection as HTMLElement).getByText((_, element) =>
+        element?.tagName.toLowerCase() === "li" &&
+        (element.textContent?.includes("workspace/src/pipeline.py") ?? false)
+      )
+    );
+    expect(await screen.findByText("Artifact Preview")).toBeInTheDocument();
+    expect(screen.getByText("print('provider generated')")).toBeInTheDocument();
     expect(screen.getByText(/verification_completed/i)).toBeInTheDocument();
   });
 });

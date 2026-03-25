@@ -2,6 +2,7 @@ import type { ArtifactRef } from "../types";
 
 type ArtifactListProps = {
   artifacts: ArtifactRef[];
+  onSelectArtifact: (artifact: ArtifactRef) => void;
 };
 
 function isDocPath(path: string) {
@@ -54,8 +55,14 @@ export function ArtifactList(props: ArtifactListProps) {
           <h3>{section.title}</h3>
           <ul>
             {section.items.map((artifact) => (
-              <li key={`${artifact.kind}-${artifact.path}`} title={artifact.path}>
-                <strong>{artifact.kind}</strong>: {formatArtifactPath(artifact.path)}
+              <li
+                key={`${artifact.kind}-${artifact.path}`}
+                title={artifact.path}
+                onClick={() => props.onSelectArtifact(artifact)}
+              >
+                <button type="button" onClick={() => props.onSelectArtifact(artifact)}>
+                  <strong>{artifact.kind}</strong>: {formatArtifactPath(artifact.path)}
+                </button>
               </li>
             ))}
           </ul>

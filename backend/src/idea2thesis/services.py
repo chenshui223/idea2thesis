@@ -164,6 +164,35 @@ class ApplicationService:
     def list_job_events(self, job_id: str):
         return self.job_store.list_job_events(job_id)
 
+    def get_artifact_content(self, job_id: str, path: str) -> dict[str, object]:
+        detail = self.get_job(job_id)
+        if detail is None:
+            raise KeyError(job_id)
+
+        registered_paths = {artifact.path for artifact in detail.artifacts}
+        if path not in registered_paths:
+            raise KeyError(path)
+
+        job_root = Path(detail.workspace_path).parent.resolve()
+        target_path = Path(path).resolve()
+        if target_path != job_root and job_root not in target_path.parents:
+            raise KeyError(path)
+        if not target_path.is_file():
+            raise KeyError(path)
+
+        try:
+            content = target_path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            raise ValueError("artifact is not a utf-8 text file") from exc
+
+        limit = 20000
+        truncated = len(content) > limit
+        return {
+            "path": str(target_path),
+            "content": content[:limit],
+            "truncated": truncated,
+        }
+
     def rerun_job(
         self, source_job_id: str, runtime_config: JobRuntimeConfig
     ) -> JobDetailResponse:

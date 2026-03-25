@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   deleteJob,
+  fetchArtifactContent,
   fetchJobDetail,
   fetchJobEvents,
   fetchJobs,
@@ -13,6 +14,7 @@ import {
 import { AgentBoard } from "./components/AgentBoard";
 import { AgentConfigPanel } from "./components/AgentConfigPanel";
 import { ArtifactList } from "./components/ArtifactList";
+import { ArtifactPreview } from "./components/ArtifactPreview";
 import { HistoryList } from "./components/HistoryList";
 import { JobDetailPanel } from "./components/JobDetailPanel";
 import { JobEventTimeline } from "./components/JobEventTimeline";
@@ -24,6 +26,7 @@ import {
   AGENT_ROLES,
   type AgentRole,
   type AgentSettings,
+  type ArtifactRef,
   type GlobalSettings,
   type HistoryListItem,
   type JobDetail,
@@ -242,6 +245,10 @@ export default function App() {
   const [eventsError, setEventsError] = useState("");
   const [rerunError, setRerunError] = useState("");
   const [deleteError, setDeleteError] = useState("");
+  const [artifactPreviewTitle, setArtifactPreviewTitle] = useState("");
+  const [artifactPreviewContent, setArtifactPreviewContent] = useState("");
+  const [artifactPreviewTruncated, setArtifactPreviewTruncated] = useState(false);
+  const [artifactPreviewError, setArtifactPreviewError] = useState("");
   const pollTimerRef = useRef<number | null>(null);
   const selectedJobId = selectedJob?.job_id ?? snapshot.job_id;
 
@@ -597,6 +604,26 @@ export default function App() {
     setHistoryQuery((current) => ({ ...current, ...patch }));
   };
 
+  const handleSelectArtifact = async (artifact: ArtifactRef) => {
+    if (!currentJobId) {
+      return;
+    }
+    setArtifactPreviewTitle(artifact.path);
+    setArtifactPreviewContent("");
+    setArtifactPreviewTruncated(false);
+    setArtifactPreviewError("");
+    try {
+      const preview = await fetchArtifactContent(currentJobId, artifact);
+      setArtifactPreviewTitle(preview.path);
+      setArtifactPreviewContent(preview.content);
+      setArtifactPreviewTruncated(preview.truncated);
+    } catch (error) {
+      setArtifactPreviewError(
+        error instanceof Error ? error.message : "failed to fetch artifact content"
+      );
+    }
+  };
+
   return (
     <main>
       <h1>idea2thesis</h1>
@@ -670,7 +697,18 @@ export default function App() {
       </section>
       <JobTimeline stage={snapshot.stage} />
       <AgentBoard agents={snapshot.agents} />
-      <ArtifactList artifacts={snapshot.artifacts} />
+      <ArtifactList
+        artifacts={snapshot.artifacts}
+        onSelectArtifact={(artifact) => {
+          void handleSelectArtifact(artifact);
+        }}
+      />
+      <ArtifactPreview
+        title={artifactPreviewTitle}
+        content={artifactPreviewContent}
+        truncated={artifactPreviewTruncated}
+        errorMessage={artifactPreviewError}
+      />
       <ValidationReportViewer
         validationState={snapshot.validation_state}
         disposition={snapshot.final_disposition}

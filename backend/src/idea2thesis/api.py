@@ -68,6 +68,15 @@ def create_router(service: ApplicationService) -> APIRouter:
         except KeyError:
             raise HTTPException(status_code=404, detail="job not found")
 
+    @router.get("/jobs/{job_id}/artifacts/content")
+    def get_artifact_content(job_id: str, path: str) -> dict[str, object]:
+        try:
+            return service.get_artifact_content(job_id, path)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="artifact not found")
+        except ValueError as exc:
+            raise HTTPException(status_code=415, detail=str(exc)) from exc
+
     @router.post("/jobs/{job_id}/rerun", status_code=201)
     async def rerun_job(job_id: str, config: str = Form(...)) -> dict[str, object]:
         try:

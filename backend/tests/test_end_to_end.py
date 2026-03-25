@@ -478,3 +478,88 @@ def test_worker_execution_persists_real_artifacts_and_events(tmp_path: Path) -> 
         ).fetchone()
     assert row is not None
     assert row[0] is None
+
+
+def test_artifact_content_endpoint_returns_registered_text_artifact(tmp_path: Path) -> None:
+    file_path = tmp_path / "brief.docx"
+    document = Document()
+    document.add_heading("图书管理系统", level=1)
+    document.add_paragraph("功能要求：用户登录、图书查询、借阅管理")
+    document.save(file_path)
+
+    settings = Settings(
+        jobs_dir=tmp_path / "jobs",
+        api_key="",
+        base_url="https://example.com/v1",
+        model="gpt-test",
+        settings_file=tmp_path / ".idea2thesis" / "settings.json",
+        database_path=tmp_path / ".idea2thesis" / "jobs.db",
+        secret_key_path=tmp_path / ".idea2thesis" / "secret.key",
+        secret_dir=tmp_path / ".idea2thesis" / "job-secrets",
+    )
+    client = TestClient(create_app(settings))
+    with file_path.open("rb") as handle:
+        created = client.post(
+            "/jobs",
+            files={
+                "file": (
+                    "brief.docx",
+                    handle.read(),
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            },
+            data={
+                "config": """
+                {
+                  "schema_version": "v1alpha1",
+                  "global": {
+                    "api_key": "runtime-key",
+                    "base_url": "https://example.com/v1",
+                    "model": "gpt-test"
+                  },
+                  "agents": {}
+                }
+                """
+            },
+        )
+    assert created.status_code == 201
+    job_id = created.json()["job_id"]
+
+    worker = AsyncJobWorker(settings)
+    assert worker.run_once() is True
+
+    detail = client.get(f"/jobs/{job_id}")
+    assert detail.status_code == 200
+    preview_artifact = next(
+        item for item in detail.json()["artifacts"] if item["kind"] == "project_readme"
+    )
+
+    preview = client.get(
+        f"/jobs/{job_id}/artifacts/content",
+        params={"path": preview_artifact["path"]},
+    )
+
+    assert preview.status_code == 200
+    body = preview.json()
+    assert body["path"] == preview_artifact["path"]
+    assert body["content"]
+    assert body["truncated"] is False
+
+
+def test_artifact_content_endpoint_rejects_unregistered_path(tmp_path: Path) -> None:
+    settings = Settings(
+        jobs_dir=tmp_path / "jobs",
+        api_key="",
+        base_url="https://example.com/v1",
+        model="gpt-test",
+        settings_file=tmp_path / ".idea2thesis" / "settings.json",
+        database_path=tmp_path / ".idea2thesis" / "jobs.db",
+        secret_key_path=tmp_path / ".idea2thesis" / "secret.key",
+        secret_dir=tmp_path / ".idea2thesis" / "job-secrets",
+    )
+    client = TestClient(create_app(settings))
+    response = client.get(
+        "/jobs/job-1/artifacts/content",
+        params={"path": "/tmp/not-registered.txt"},
+    )
+    assert response.status_code == 404

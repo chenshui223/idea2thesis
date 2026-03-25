@@ -1,4 +1,5 @@
 import type {
+  ArtifactRef,
   HistoryListResponse,
   JobDetail,
   JobEventsResponse,
@@ -10,6 +11,12 @@ import type {
   RuntimePreset,
   SettingsResponse
 } from "./types";
+
+export type ArtifactContent = {
+  path: string;
+  content: string;
+  truncated: boolean;
+};
 
 function normalizeRuntimePreset(input: any): RuntimePreset {
   if (input?.global) {
@@ -211,4 +218,17 @@ export async function deleteJob(jobId: string): Promise<JobDetail> {
     throw new Error("failed to delete job");
   }
   return normalizeJobDetail(await response.json());
+}
+
+export async function fetchArtifactContent(
+  jobId: string,
+  artifact: ArtifactRef
+): Promise<ArtifactContent> {
+  const url = new URL(`/jobs/${jobId}/artifacts/content`, window.location.origin);
+  url.searchParams.set("path", artifact.path);
+  const response = await fetch(`/jobs/${jobId}/artifacts/content${url.search}`);
+  if (!response.ok) {
+    throw new Error("failed to fetch artifact content");
+  }
+  return response.json();
 }
