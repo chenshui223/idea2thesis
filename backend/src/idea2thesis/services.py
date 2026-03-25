@@ -122,10 +122,7 @@ class ApplicationService:
                 runtime_inputs={
                     "global_base_url": runtime_config.global_config.base_url,
                     "global_model": runtime_config.global_config.model,
-                    "agents_json": json.dumps(
-                        runtime_config.model_dump(by_alias=True)["agents"],
-                        ensure_ascii=False,
-                    ),
+                    "agents_json": self._persisted_runtime_agents_json(runtime_config),
                     "api_key_required": True,
                 },
                 agents=[
@@ -172,14 +169,10 @@ class ApplicationService:
     ) -> JobDetailResponse:
         new_job_id = uuid4().hex[:12]
         source = self.job_store.get_job(source_job_id)
-        source_runtime = source.runtime_preset
         runtime_inputs = {
-            "global_base_url": source_runtime.global_config.base_url,
-            "global_model": source_runtime.global_config.model,
-            "agents_json": json.dumps(
-                runtime_config.model_dump(by_alias=True)["agents"],
-                ensure_ascii=False,
-            ),
+            "global_base_url": runtime_config.global_config.base_url,
+            "global_model": runtime_config.global_config.model,
+            "agents_json": self._persisted_runtime_agents_json(runtime_config),
             "api_key_required": True,
         }
         secret_path = self.settings.secret_dir / f"{new_job_id}.bin"
@@ -188,7 +181,7 @@ class ApplicationService:
             new_job_id=new_job_id,
             secret_file_path=str(secret_path),
             runtime_inputs=runtime_inputs,
-            agents=list(source_runtime.agents.keys()),
+            agents=list(source.runtime_preset.agents.keys()),
         )
 
     def delete_job(self, job_id: str) -> JobDetailResponse:
@@ -219,3 +212,13 @@ class ApplicationService:
             self.orchestrator.resolve_effective_agent_configs(runtime_config)
         except ValueError as exc:
             raise ConfigurationError(str(exc)) from exc
+
+    def _persisted_runtime_agents_json(self, runtime_config: JobRuntimeConfig) -> str:
+        persisted_agents = {}
+        for role, override in runtime_config.agents.items():
+            persisted_agents[role] = {
+                "use_global": override.use_global,
+                "base_url": override.base_url,
+                "model": override.model,
+            }
+        return json.dumps(persisted_agents, ensure_ascii=False)

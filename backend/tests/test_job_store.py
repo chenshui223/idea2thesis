@@ -396,7 +396,7 @@ def test_create_rerun_job_links_source_and_reuses_runtime_inputs(tmp_path: Path)
                 "source-job",
                 "https://example.com/v1",
                 "gpt-test",
-                '{"coder": {"use_global": true, "api_key": "", "base_url": "", "model": ""}}',
+                '{"coder": {"use_global": true, "base_url": "", "model": ""}}',
                 0,
             ),
         )
@@ -406,12 +406,22 @@ def test_create_rerun_job_links_source_and_reuses_runtime_inputs(tmp_path: Path)
         source_job_id="source-job",
         new_job_id="rerun-job",
         secret_file_path=str(tmp_path / ".idea2thesis" / "job-secrets" / "rerun-job.bin"),
-        runtime_inputs={"global_base_url": "https://example.com/v1", "global_model": "gpt-test"},
+        runtime_inputs={
+            "global_base_url": "https://rerun.example.com/v1",
+            "global_model": "gpt-rerun",
+            "agents_json": '{"coder": {"useGlobal": false, "base_url": "https://rerun-coder.example.com/v1", "model": "gpt-rerun-coder"}}',
+        },
         agents=["coder"],
     )
     assert rerun.job_id == "rerun-job"
     assert rerun.source_job_id == "source-job"
     assert rerun.status == "pending"
+    assert rerun.runtime_preset.global_config.base_url == "https://rerun.example.com/v1"
+    assert rerun.runtime_preset.global_config.model == "gpt-rerun"
+    assert rerun.runtime_preset.agents["coder"].use_global is False
+    assert rerun.runtime_preset.agents["coder"].base_url == "https://rerun-coder.example.com/v1"
+    assert rerun.runtime_preset.agents["coder"].model == "gpt-rerun-coder"
+    assert "api_key" not in rerun.model_dump_json(by_alias=True)
 
 
 def test_create_rerun_job_fails_when_source_input_missing(tmp_path: Path) -> None:

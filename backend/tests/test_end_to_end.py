@@ -4,6 +4,7 @@ from docx import Document
 from fastapi.testclient import TestClient
 
 from idea2thesis.config import Settings
+from idea2thesis.db import open_connection
 from idea2thesis.main import create_app
 
 
@@ -237,3 +238,64 @@ def test_rerun_and_delete_integration(tmp_path: Path) -> None:
 
     deleted = client.delete("/jobs/source-job")
     assert deleted.status_code == 404
+
+
+def test_job_creation_does_not_persist_agent_api_keys(tmp_path: Path) -> None:
+    file_path = tmp_path / "brief.docx"
+    document = Document()
+    document.add_heading("图书管理系统", level=1)
+    document.save(file_path)
+
+    settings = Settings(
+        jobs_dir=tmp_path / "jobs",
+        api_key="",
+        base_url="https://example.com/v1",
+        model="gpt-test",
+        settings_file=tmp_path / ".idea2thesis" / "settings.json",
+        database_path=tmp_path / ".idea2thesis" / "jobs.db",
+        secret_key_path=tmp_path / ".idea2thesis" / "secret.key",
+        secret_dir=tmp_path / ".idea2thesis" / "job-secrets",
+    )
+    client = TestClient(create_app(settings))
+    with file_path.open("rb") as handle:
+        response = client.post(
+            "/jobs",
+            files={
+                "file": (
+                    "brief.docx",
+                    handle.read(),
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            },
+            data={
+                "config": """
+                {
+                  "schema_version": "v1alpha1",
+                  "global": {
+                    "api_key": "runtime-key",
+                    "base_url": "https://example.com/v1",
+                    "model": "gpt-test"
+                  },
+                  "agents": {
+                    "coder": {
+                      "use_global": false,
+                      "api_key": "coder-secret",
+                      "base_url": "https://coder.example.com/v1",
+                      "model": "gpt-coder"
+                    }
+                  }
+                }
+                """
+            },
+        )
+
+    assert response.status_code == 201
+    job_id = response.json()["job_id"]
+    with open_connection(settings) as connection:
+        row = connection.execute(
+            "SELECT agents_json FROM job_runtime_inputs WHERE job_id = ?",
+            (job_id,),
+        ).fetchone()
+    assert row is not None
+    assert "coder-secret" not in str(row[0])
+    assert '"api_key"' not in str(row[0])
