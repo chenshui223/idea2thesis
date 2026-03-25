@@ -11,7 +11,7 @@ export function ArtifactList(props: ArtifactListProps) {
       <ul>
         {props.artifacts.map((artifact) => (
           <li key={`${artifact.kind}-${artifact.path}`}>
-            {artifact.kind}: {artifact.path}
+            <strong>{artifact.kind}</strong>: {artifact.path}
           </li>
         ))}
       </ul>

@@ -426,6 +426,56 @@ class JobStore:
             ],
         )
 
+    def record_job_progress(
+        self,
+        *,
+        job_id: str,
+        stage: str,
+        agent_statuses: Iterable[AgentStatus],
+        event_kind: str,
+        event_message: str,
+        payload: dict[str, object] | None = None,
+    ) -> None:
+        now = _utc_now()
+        with open_connection(self.settings) as connection:
+            row = connection.execute(
+                "SELECT id, secret_file_path FROM jobs WHERE id = ?",
+                (job_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(job_id)
+            connection.execute(
+                """
+                UPDATE jobs
+                SET status = ?, stage = ?, updated_at = ?, validation_state = ?
+                WHERE id = ?
+                """,
+                ("running", stage, now, "running", job_id),
+            )
+            connection.execute("DELETE FROM job_agent_states WHERE job_id = ?", (job_id,))
+            for agent in agent_statuses:
+                connection.execute(
+                    """
+                    INSERT INTO job_agent_states (job_id, role, status, summary, updated_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (job_id, agent.role, agent.status, agent.summary, now),
+                )
+            connection.execute(
+                """
+                INSERT INTO job_events (job_id, timestamp, kind, message, payload_json)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    job_id,
+                    now,
+                    event_kind,
+                    event_message,
+                    json.dumps(payload or {}, ensure_ascii=False),
+                ),
+            )
+            connection.commit()
+
     def create_rerun_job(
         self,
         *,

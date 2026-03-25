@@ -1,5 +1,58 @@
+import json
+from pathlib import Path
+
 from idea2thesis.contracts import ParsedBrief
+from idea2thesis.executor import LocalCommandExecutor
 from idea2thesis.orchestrator import SupervisorOrchestrator
+from idea2thesis.providers.base import CompletionProvider
+from idea2thesis.providers.runner import AgentProviderConfig
+from idea2thesis.storage import JobPaths, JobStorage
+
+
+def sample_brief(title: str = "图书管理系统") -> ParsedBrief:
+    return ParsedBrief(
+        title=title,
+        requirements=["用户登录", "图书查询", "借阅管理"],
+        constraints=["本地部署"],
+        tech_hints=["Python", "FastAPI"],
+        thesis_cues=["摘要", "系统设计"],
+        raw_text=title,
+        extraction_snapshot={"paragraphs": [title]},
+    )
+
+
+def seeded_job_paths(tmp_path: Path, job_id: str) -> JobPaths:
+    storage = JobStorage(tmp_path / "jobs")
+    return storage.create_job_workspace(job_id)
+
+
+def artifact_json(path: Path) -> dict[str, object]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def artifact_markdown(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+class FakeProvider:
+    def __init__(self, content: str | Exception) -> None:
+        self.content = content
+
+    def complete(self, prompt: str) -> str:
+        if isinstance(self.content, Exception):
+            raise self.content
+        return self.content
+
+
+class PromptRouterProvider:
+    def __init__(self, responses: dict[str, str]) -> None:
+        self.responses = responses
+
+    def complete(self, prompt: str) -> str:
+        for marker, response in self.responses.items():
+            if marker in prompt:
+                return response
+        raise AssertionError(f"unexpected prompt: {prompt}")
 
 
 def test_supervisor_builds_plan_with_review_criteria_and_tasks() -> None:
@@ -32,3 +85,262 @@ def test_supervisor_builds_plan_with_review_criteria_and_tasks() -> None:
         "code_eval",
         "doc_check",
     ]
+
+
+def test_run_job_persists_real_stage_artifacts_and_manifest(tmp_path: Path) -> None:
+    orchestrator = SupervisorOrchestrator()
+    brief = sample_brief(title="图书管理系统")
+    paths = seeded_job_paths(tmp_path, "job-1")
+    executor = LocalCommandExecutor(paths.workspace_dir)
+
+    snapshot = orchestrator.run_job("job-1", brief, paths, executor)
+
+    assert snapshot.status == "completed"
+    assert snapshot.stage == "completed"
+    assert artifact_json(paths.artifacts_dir / "agent" / "advisor" / "advisor_plan.json")["agent_role"] == "advisor"
+    assert artifact_json(paths.artifacts_dir / "agent" / "coder" / "code_summary.json")["agent_role"] == "coder"
+    assert artifact_markdown(paths.artifacts_dir / "agent" / "writer" / "thesis_draft.md").startswith("#")
+    assert artifact_json(paths.artifacts_dir / "final" / "job_manifest.json")["final_disposition"] == "completed"
+
+
+def test_doc_check_blocks_when_required_sections_are_missing(tmp_path: Path) -> None:
+    orchestrator = SupervisorOrchestrator()
+    brief = ParsedBrief(
+        title="图书管理系统",
+        requirements=[],
+        constraints=["本地部署"],
+        tech_hints=["FastAPI"],
+        thesis_cues=[],
+        raw_text="图书管理系统",
+        extraction_snapshot={"paragraphs": ["图书管理系统"]},
+    )
+    paths = seeded_job_paths(tmp_path, "job-2")
+    executor = LocalCommandExecutor(paths.workspace_dir)
+
+    snapshot = orchestrator.run_job("job-2", brief, paths, executor)
+
+    doc_check = artifact_json(paths.artifacts_dir / "verification" / "doc_check.json")
+    manifest = artifact_json(paths.artifacts_dir / "final" / "job_manifest.json")
+    assert doc_check["status"] == "must_fix"
+    assert snapshot.status == "blocked"
+    assert manifest["final_disposition"] == "blocked"
+
+
+def test_code_eval_failure_marks_job_failed(tmp_path: Path) -> None:
+    orchestrator = SupervisorOrchestrator()
+    brief = sample_brief(title="图书管理系统")
+    paths = seeded_job_paths(tmp_path, "job-3")
+    executor = LocalCommandExecutor(paths.workspace_dir)
+    (paths.workspace_dir / "fail.py").write_text("raise SystemExit(2)\n", encoding="utf-8")
+
+    snapshot = orchestrator.run_job("job-3", brief, paths, executor)
+
+    code_eval = artifact_json(paths.artifacts_dir / "verification" / "code_eval.json")
+    manifest = artifact_json(paths.artifacts_dir / "final" / "job_manifest.json")
+    assert code_eval["status"] == "failed"
+    assert snapshot.status == "failed"
+    assert manifest["final_disposition"] == "failed"
+
+
+def test_provider_failure_falls_back_to_deterministic_generation(tmp_path: Path) -> None:
+    orchestrator = SupervisorOrchestrator(
+        provider_factory=lambda config: FakeProvider(RuntimeError(f"{config.role} down"))
+    )
+    brief = sample_brief(title="图书管理系统")
+    paths = seeded_job_paths(tmp_path, "job-4")
+    executor = LocalCommandExecutor(paths.workspace_dir)
+
+    snapshot = orchestrator.run_job(
+        "job-4",
+        brief,
+        paths,
+        executor,
+        provider_configs={
+            "advisor": AgentProviderConfig(
+                role="advisor",
+                api_key="advisor-key",
+                base_url="https://example.com/v1",
+                model="gpt-advisor",
+            ),
+            "coder": AgentProviderConfig(
+                role="coder",
+                api_key="coder-key",
+                base_url="https://example.com/v1",
+                model="gpt-coder",
+            ),
+            "writer": AgentProviderConfig(
+                role="writer",
+                api_key="writer-key",
+                base_url="https://example.com/v1",
+                model="gpt-writer",
+            ),
+        },
+    )
+
+    advisor = artifact_json(paths.artifacts_dir / "agent" / "advisor" / "advisor_plan.json")
+    code_summary = artifact_json(paths.artifacts_dir / "agent" / "coder" / "code_summary.json")
+    thesis_text = artifact_markdown(paths.artifacts_dir / "agent" / "writer" / "thesis_draft.md")
+    assert snapshot.status == "completed"
+    assert "fallback" in advisor["summary"].lower()
+    assert "fallback" in code_summary["summary"].lower()
+    assert thesis_text.startswith("#")
+
+
+def test_provider_structured_output_populates_advisor_coder_and_writer_artifacts(
+    tmp_path: Path,
+) -> None:
+    orchestrator = SupervisorOrchestrator(
+        provider_factory=lambda config: PromptRouterProvider(
+            {
+                "毕业设计指导老师 agent": """
+                {
+                  "summary": "structured advisor summary",
+                  "project_summary": "面向课程设计的一键式数据分析项目生成器。",
+                  "recommended_stack": "python-data-plus",
+                  "module_breakdown": ["data_ingest", "analysis_pipeline", "report_export"],
+                  "implementation_priorities": ["解析设计书", "生成代码", "执行评测"],
+                  "writing_priorities": ["摘要", "方案设计", "实验结果"],
+                  "risks": ["训练数据不足"],
+                  "coder_directives": ["生成可运行脚本", "输出评测命令"],
+                  "writer_directives": ["围绕实验结果展开论文初稿"]
+                }
+                """,
+                "你是 coder agent": """
+                ```json
+                {
+                  "summary": "structured coder summary",
+                  "generated_files": ["README.md", "src/pipeline.py", "docs/usage.md"],
+                  "chosen_stack": "python-data-plus",
+                  "run_commands": ["python -m app.cli run"],
+                  "test_commands": ["pytest -q", "python -m app.cli smoke"],
+                  "known_limitations": ["需要用户补充真实数据集"]
+                }
+                ```
+                """,
+                "你是 writer agent": """
+                {
+                  "summary": "structured writer summary",
+                  "title": "图书管理系统论文初稿",
+                  "sections": ["摘要", "需求分析", "系统设计", "实现概述", "测试与验证", "结论"],
+                  "abstract": "本文提出一个支持本地部署的数据分析类毕业设计生成系统。",
+                  "requirements_analysis": "需求覆盖文档解析、代码生成与论文生成。",
+                  "system_design": "系统采用多 agent 协同架构。",
+                  "implementation_overview": "实现阶段集成 provider 调用与回退策略。",
+                  "testing_validation": "通过本地命令对关键流程进行验证。",
+                  "conclusion": "结果表明该方案适合作为毕业设计初稿基座。",
+                  "design_report": {
+                    "summary": "structured design report summary",
+                    "goal": "沉淀可复用的一键生成流程。",
+                    "module_breakdown": ["advisor", "coder", "writer"],
+                    "delivery_notes": "交付包含代码、文档与验证结果。"
+                  }
+                }
+                """,
+            }
+        )
+    )
+    brief = sample_brief(title="图书管理系统")
+    paths = seeded_job_paths(tmp_path, "job-5")
+    executor = LocalCommandExecutor(paths.workspace_dir)
+
+    snapshot = orchestrator.run_job(
+        "job-5",
+        brief,
+        paths,
+        executor,
+        provider_configs={
+            "advisor": AgentProviderConfig(
+                role="advisor",
+                api_key="advisor-key",
+                base_url="https://example.com/v1",
+                model="gpt-advisor",
+            ),
+            "coder": AgentProviderConfig(
+                role="coder",
+                api_key="coder-key",
+                base_url="https://example.com/v1",
+                model="gpt-coder",
+            ),
+            "writer": AgentProviderConfig(
+                role="writer",
+                api_key="writer-key",
+                base_url="https://example.com/v1",
+                model="gpt-writer",
+            ),
+        },
+    )
+
+    advisor = artifact_json(paths.artifacts_dir / "agent" / "advisor" / "advisor_plan.json")
+    code_summary = artifact_json(paths.artifacts_dir / "agent" / "coder" / "code_summary.json")
+    thesis_text = artifact_markdown(paths.artifacts_dir / "agent" / "writer" / "thesis_draft.md")
+    design_text = artifact_markdown(paths.artifacts_dir / "agent" / "writer" / "design_report.md")
+
+    assert snapshot.status == "completed"
+    assert advisor["summary"] == "structured advisor summary"
+    assert advisor["recommended_stack"] == "python-data-plus"
+    assert advisor["module_breakdown"] == ["data_ingest", "analysis_pipeline", "report_export"]
+    assert code_summary["summary"] == "structured coder summary"
+    assert code_summary["generated_files"] == ["README.md", "src/pipeline.py", "docs/usage.md"]
+    assert code_summary["run_commands"] == ["python -m app.cli run"]
+    assert "本文提出一个支持本地部署的数据分析类毕业设计生成系统。" in thesis_text
+    assert "系统采用多 agent 协同架构。" in thesis_text
+    assert "交付包含代码、文档与验证结果。" in design_text
+
+
+def test_provider_malformed_structured_output_falls_back_to_deterministic_fields(
+    tmp_path: Path,
+) -> None:
+    orchestrator = SupervisorOrchestrator(
+        provider_factory=lambda config: PromptRouterProvider(
+            {
+                "毕业设计指导老师 agent": "{not-valid-json}",
+                "你是 coder agent": "plain summary only",
+                "你是 writer agent": "```json\n{\"summary\": \"writer only\"}\n```",
+            }
+        )
+    )
+    brief = sample_brief(title="图书管理系统")
+    paths = seeded_job_paths(tmp_path, "job-6")
+    executor = LocalCommandExecutor(paths.workspace_dir)
+
+    snapshot = orchestrator.run_job(
+        "job-6",
+        brief,
+        paths,
+        executor,
+        provider_configs={
+            "advisor": AgentProviderConfig(
+                role="advisor",
+                api_key="advisor-key",
+                base_url="https://example.com/v1",
+                model="gpt-advisor",
+            ),
+            "coder": AgentProviderConfig(
+                role="coder",
+                api_key="coder-key",
+                base_url="https://example.com/v1",
+                model="gpt-coder",
+            ),
+            "writer": AgentProviderConfig(
+                role="writer",
+                api_key="writer-key",
+                base_url="https://example.com/v1",
+                model="gpt-writer",
+            ),
+        },
+    )
+
+    advisor = artifact_json(paths.artifacts_dir / "agent" / "advisor" / "advisor_plan.json")
+    code_summary = artifact_json(paths.artifacts_dir / "agent" / "coder" / "code_summary.json")
+    thesis_text = artifact_markdown(paths.artifacts_dir / "agent" / "writer" / "thesis_draft.md")
+
+    assert snapshot.status == "completed"
+    assert advisor["recommended_stack"] == "fastapi-react"
+    assert advisor["module_breakdown"] == [
+        "authentication",
+        "catalog_search",
+        "workflow_management",
+        "reporting",
+    ]
+    assert code_summary["generated_files"] == ["README.md"]
+    assert "图书管理系统 面向本地单用户毕业设计场景" in thesis_text

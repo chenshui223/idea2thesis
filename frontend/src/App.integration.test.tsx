@@ -620,4 +620,95 @@ describe("App history workbench", () => {
     const job2Calls = fetchMock.mock.calls.filter(([input]) => String(input).includes("/jobs/job-2"));
     expect(job2Calls.length).toBeGreaterThanOrEqual(job1Calls.length);
   });
+
+  test("detail workbench shows agent summaries, artifacts, and verification events", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockResolvedValueOnce(mockSettingsResponse());
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        total: 1,
+        items: [
+          {
+            job_id: "job-1",
+            brief_title: "Thesis Job",
+            status: "completed",
+            stage: "completed",
+            final_disposition: "completed",
+            updated_at: "2026-03-25T00:00:00Z",
+            created_at: "2026-03-25T00:00:00Z"
+          }
+        ]
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        job_id: "job-1",
+        brief_title: "Thesis Job",
+        source_job_id: null,
+        status: "completed",
+        stage: "completed",
+        final_disposition: "completed",
+        validation_state: "completed",
+        workspace_path: "/jobs/job-1/workspace",
+        input_file_path: "/jobs/job-1/input/brief.docx",
+        error_message: "",
+        deleted_at: null,
+        created_at: "2026-03-25T00:00:00Z",
+        updated_at: "2026-03-25T00:02:00Z",
+        agents: [
+          { role: "advisor", status: "done", summary: "defined delivery scope" },
+          { role: "code_eval", status: "done", summary: "local verification command executed" }
+        ],
+        artifacts: [
+          { kind: "job_manifest", path: "/jobs/job-1/artifacts/final/job_manifest.json" },
+          { kind: "code_eval", path: "/jobs/job-1/artifacts/verification/code_eval.json" }
+        ],
+        runtime_preset: {
+          global: {
+            base_url: "https://api.example.com/v1",
+            model: "gpt-4.1-mini"
+          },
+          agents: {}
+        }
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        items: [
+          {
+            id: 1,
+            timestamp: "2026-03-25T00:00:10Z",
+            kind: "verification_started",
+            message: "verification started",
+            payload: {}
+          },
+          {
+            id: 2,
+            timestamp: "2026-03-25T00:00:20Z",
+            kind: "verification_completed",
+            message: "verification completed",
+            payload: { code_eval: "pass" }
+          }
+        ]
+      })
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText("Current job: job-1")).toBeInTheDocument();
+    expect(screen.getByText(/advisor: defined delivery scope/i)).toBeInTheDocument();
+    const artifactsSection = screen.getByRole("heading", { name: "Artifacts" }).closest("section");
+    expect(artifactsSection).not.toBeNull();
+    expect(
+      within(artifactsSection as HTMLElement).getByText((_, element) =>
+        element?.tagName.toLowerCase() === "li" &&
+        (element.textContent?.includes("/jobs/job-1/artifacts/final/job_manifest.json") ??
+          false)
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByText(/verification_completed/i)).toBeInTheDocument();
+  });
 });

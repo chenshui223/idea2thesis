@@ -66,7 +66,8 @@ def test_worker_claims_pending_job_and_persists_completion(tmp_path: Path) -> No
 
     snapshot = store.get_job("job-1")
     assert snapshot.status == "completed"
-    assert any(item.kind == "verification_report" for item in snapshot.artifacts)
+    assert any(item.kind == "job_manifest" for item in snapshot.artifacts)
+    assert any(item.kind == "code_eval" for item in snapshot.artifacts)
     assert not store.get_job_record("job-1").secret_file_path
 
 
@@ -86,3 +87,17 @@ def test_worker_startup_reconciles_stale_running_jobs_only(tmp_path: Path) -> No
     assert store.get_job("stale-running").status == "interrupted"
     assert store.get_job("still-pending").status == "pending"
     assert not store.get_job_record("stale-running").secret_file_path
+
+
+def test_worker_records_repair_and_verification_events_before_completion(
+    tmp_path: Path,
+) -> None:
+    settings, store = seed_pending_job(tmp_path, job_id="job-repair")
+
+    worker = AsyncJobWorker(settings)
+    worker.run_once()
+
+    events = store.list_job_events("job-repair")
+    kinds = [event.kind for event in events.items]
+    assert "verification_started" in kinds
+    assert "verification_completed" in kinds

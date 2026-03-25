@@ -102,6 +102,107 @@ class ExecutionReport(VersionedModel):
     policy_decision: str = ""
 
 
+ArtifactStatus = Literal[
+    "completed",
+    "pass",
+    "pass_with_notes",
+    "must_fix",
+    "failed",
+    "blocked",
+]
+ReviewVerdict = Literal["pass", "pass_with_notes", "must_fix"]
+FinalDisposition = Literal["completed", "failed", "blocked"]
+
+
+class ExecutionArtifact(VersionedModel):
+    job_id: str
+    agent_role: str
+    created_at: str
+    status: ArtifactStatus
+    summary: str
+
+
+class AdvisorPlanArtifact(ExecutionArtifact):
+    project_title: str
+    project_summary: str
+    recommended_stack: str
+    module_breakdown: list[str] = Field(default_factory=list)
+    implementation_priorities: list[str] = Field(default_factory=list)
+    writing_priorities: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+    coder_directives: list[str] = Field(default_factory=list)
+    writer_directives: list[str] = Field(default_factory=list)
+
+
+class CodeSummaryArtifact(ExecutionArtifact):
+    generated_files: list[str] = Field(default_factory=list)
+    chosen_stack: str
+    run_commands: list[str] = Field(default_factory=list)
+    test_commands: list[str] = Field(default_factory=list)
+    known_limitations: list[str] = Field(default_factory=list)
+
+
+class ThesisDraftArtifact(ExecutionArtifact):
+    title: str
+    sections: list[str] = Field(default_factory=list)
+    word_count: int = 0
+
+
+class DesignReportArtifact(ExecutionArtifact):
+    title: str
+    sections: list[str] = Field(default_factory=list)
+    word_count: int = 0
+
+
+class RequirementsReviewArtifact(ExecutionArtifact):
+    alignment_verdict: ReviewVerdict
+    missing_requirements: list[str] = Field(default_factory=list)
+    overbuild: list[str] = Field(default_factory=list)
+    fix_directives: list[str] = Field(default_factory=list)
+
+
+class EngineeringReviewArtifact(ExecutionArtifact):
+    engineering_verdict: ReviewVerdict
+    repository_structure_notes: list[str] = Field(default_factory=list)
+    validation_readiness_notes: list[str] = Field(default_factory=list)
+    engineering_risks: list[str] = Field(default_factory=list)
+    fix_directives: list[str] = Field(default_factory=list)
+
+
+class DeliveryReviewArtifact(ExecutionArtifact):
+    delivery_verdict: ReviewVerdict
+    missing_deliverables: list[str] = Field(default_factory=list)
+    submission_risks: list[str] = Field(default_factory=list)
+    final_recommendation: str
+
+
+class CodeEvalCommandResult(BaseModel):
+    command: list[str] = Field(default_factory=list)
+    status: str
+    stdout_path: str = ""
+    stderr_path: str = ""
+    summary: str
+
+
+class CodeEvalArtifact(ExecutionArtifact):
+    commands: list[CodeEvalCommandResult] = Field(default_factory=list)
+    overall_result: str
+
+
+class DocCheckArtifact(ExecutionArtifact):
+    section_completeness: list[str] = Field(default_factory=list)
+    placeholder_findings: list[str] = Field(default_factory=list)
+    title_scope_consistency: list[str] = Field(default_factory=list)
+    code_alignment_notes: list[str] = Field(default_factory=list)
+
+
+class FinalJobManifestArtifact(ExecutionArtifact):
+    final_disposition: FinalDisposition
+    repair_performed: bool = False
+    stage_results: dict[str, str] = Field(default_factory=dict)
+    artifacts: dict[str, str] = Field(default_factory=dict)
+
+
 class GlobalRuntimeConfig(BaseModel):
     api_key: str = ""
     base_url: str = ""

@@ -14,6 +14,41 @@ class JobPaths:
     logs_dir: Path
 
 
+@dataclass(frozen=True)
+class ExecutionArtifactPaths:
+    advisor_plan: Path
+    implementation_plan: Path
+    code_summary: Path
+    thesis_draft: Path
+    design_report: Path
+    requirements_review: Path
+    engineering_review: Path
+    delivery_review: Path
+    code_eval: Path
+    doc_check: Path
+    final_manifest: Path
+
+
+def build_execution_artifact_paths(paths: JobPaths) -> ExecutionArtifactPaths:
+    base = paths.artifacts_dir
+    artifact_paths = ExecutionArtifactPaths(
+        advisor_plan=base / "agent" / "advisor" / "advisor_plan.json",
+        implementation_plan=base / "agent" / "coder" / "implementation_plan.md",
+        code_summary=base / "agent" / "coder" / "code_summary.json",
+        thesis_draft=base / "agent" / "writer" / "thesis_draft.md",
+        design_report=base / "agent" / "writer" / "design_report.md",
+        requirements_review=base / "agent" / "review" / "requirements_review.json",
+        engineering_review=base / "agent" / "review" / "engineering_review.json",
+        delivery_review=base / "agent" / "review" / "delivery_review.json",
+        code_eval=base / "verification" / "code_eval.json",
+        doc_check=base / "verification" / "doc_check.json",
+        final_manifest=base / "final" / "job_manifest.json",
+    )
+    for file_path in artifact_paths.__dict__.values():
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+    return artifact_paths
+
+
 class JobStorage:
     def __init__(self, base_dir: Path) -> None:
         self.base_dir = base_dir.resolve()

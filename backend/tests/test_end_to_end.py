@@ -7,6 +7,7 @@ from idea2thesis.config import Settings
 from idea2thesis.db import open_connection
 from idea2thesis.main import create_app
 from idea2thesis.secrets import read_job_secret
+from idea2thesis.worker import AsyncJobWorker
 
 
 def test_create_job_from_uploaded_brief_returns_snapshot_and_artifacts(tmp_path: Path) -> None:
@@ -402,3 +403,78 @@ def test_rerun_writes_fresh_secret_and_uses_submitted_runtime_config(tmp_path: P
     envelope = read_job_secret(settings, secret_path)
     assert envelope.global_api_key == "runtime-key-2"
     assert envelope.per_agent_api_keys["coder"] == "coder-key-2"
+
+
+def test_worker_execution_persists_real_artifacts_and_events(tmp_path: Path) -> None:
+    file_path = tmp_path / "brief.docx"
+    document = Document()
+    document.add_heading("图书管理系统", level=1)
+    document.add_paragraph("功能要求：用户登录、图书查询、借阅管理")
+    document.save(file_path)
+
+    settings = Settings(
+        jobs_dir=tmp_path / "jobs",
+        api_key="",
+        base_url="https://example.com/v1",
+        model="gpt-test",
+        settings_file=tmp_path / ".idea2thesis" / "settings.json",
+        database_path=tmp_path / ".idea2thesis" / "jobs.db",
+        secret_key_path=tmp_path / ".idea2thesis" / "secret.key",
+        secret_dir=tmp_path / ".idea2thesis" / "job-secrets",
+    )
+    client = TestClient(create_app(settings))
+    with file_path.open("rb") as handle:
+        created = client.post(
+            "/jobs",
+            files={
+                "file": (
+                    "brief.docx",
+                    handle.read(),
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            },
+            data={
+                "config": """
+                {
+                  "schema_version": "v1alpha1",
+                  "global": {
+                    "api_key": "runtime-key",
+                    "base_url": "https://example.com/v1",
+                    "model": "gpt-test"
+                  },
+                  "agents": {}
+                }
+                """
+            },
+        )
+    assert created.status_code == 201
+    job_id = created.json()["job_id"]
+
+    worker = AsyncJobWorker(settings)
+    assert worker.run_once() is True
+
+    detail = client.get(f"/jobs/{job_id}")
+    events = client.get(f"/jobs/{job_id}/events")
+    assert detail.status_code == 200
+    assert events.status_code == 200
+    body = detail.json()
+    event_kinds = [item["kind"] for item in events.json()["items"]]
+    assert body["status"] == "completed"
+    assert body["final_disposition"] == "completed"
+    assert any(item["kind"] == "job_manifest" for item in body["artifacts"])
+    assert any(item["kind"] == "code_eval" for item in body["artifacts"])
+    assert "verification_started" in event_kinds
+    assert "verification_completed" in event_kinds
+
+    manifest_path = tmp_path / "jobs" / job_id / "artifacts" / "final" / "job_manifest.json"
+    manifest_text = manifest_path.read_text(encoding="utf-8")
+    assert '"final_disposition": "completed"' in manifest_text
+    assert "runtime-key" not in manifest_text
+
+    with open_connection(settings) as connection:
+        row = connection.execute(
+            "SELECT secret_file_path FROM jobs WHERE id = ?",
+            (job_id,),
+        ).fetchone()
+    assert row is not None
+    assert row[0] is None

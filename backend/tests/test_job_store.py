@@ -3,6 +3,7 @@ from pathlib import Path
 from docx import Document
 
 from idea2thesis.config import Settings
+from idea2thesis.contracts import AgentStatus
 from idea2thesis.db import initialize_database, open_connection
 from idea2thesis.job_store import JobStore
 
@@ -346,6 +347,46 @@ def test_list_job_events_returns_ordered_events(tmp_path: Path) -> None:
 
     events = store.list_job_events("job-1")
     assert [event.kind for event in events.items] == ["job_created", "a", "b"]
+
+
+def test_record_job_progress_updates_stage_agents_and_event_log(tmp_path: Path) -> None:
+    settings = build_settings(tmp_path)
+    initialize_database(settings)
+    store = JobStore(settings)
+    store.create_job(
+        job_id="job-1",
+        brief_title="图书管理系统",
+        input_file_path=str(tmp_path / "jobs" / "job-1" / "input" / "brief.docx"),
+        workspace_path=str(tmp_path / "jobs" / "job-1" / "workspace"),
+        secret_file_path=str(tmp_path / ".idea2thesis" / "job-secrets" / "job-1.bin"),
+        runtime_inputs={
+            "global_base_url": "https://example.com/v1",
+            "global_model": "gpt-test",
+            "agents_json": "{}",
+            "api_key_required": True,
+        },
+        agents=["advisor", "coder"],
+    )
+
+    store.record_job_progress(
+        job_id="job-1",
+        stage="advisor_running",
+        agent_statuses=[
+            AgentStatus(role="advisor", status="running", summary="planning scope"),
+            AgentStatus(role="coder", status="pending", summary=""),
+        ],
+        event_kind="advisor_started",
+        event_message="advisor started",
+        payload={"stage": "advisor_running"},
+    )
+
+    detail = store.get_job("job-1")
+    events = store.list_job_events("job-1")
+    assert detail.status == "running"
+    assert detail.stage == "advisor_running"
+    assert detail.agents[0].status == "running"
+    assert events.items[-1].kind == "advisor_started"
+    assert events.items[-1].payload["stage"] == "advisor_running"
 
 
 def test_create_rerun_job_links_source_and_reuses_runtime_inputs(tmp_path: Path) -> None:

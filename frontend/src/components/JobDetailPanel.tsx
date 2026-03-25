@@ -21,6 +21,9 @@ export function JobDetailPanel(props: JobDetailPanelProps) {
           <p>Current job: {job.job_id}</p>
           <p>Title: {job.brief_title}</p>
           <p>Status: {job.status}</p>
+          <p>Stage: {job.stage}</p>
+          <p>Final disposition: {job.final_disposition}</p>
+          <p>Validation state: {job.validation_state}</p>
           {job.deleted_at ? <p>Deleted at: {job.deleted_at}</p> : null}
           <p>Workspace: {job.workspace_path}</p>
           <p>Input file: {job.input_file_path}</p>

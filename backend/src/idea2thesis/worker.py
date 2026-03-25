@@ -5,11 +5,13 @@ import time
 from uuid import uuid4
 
 from idea2thesis.config import Settings
+from idea2thesis.contracts import AgentRuntimeOverride, GlobalRuntimeConfig
 from idea2thesis.executor import LocalCommandExecutor
 from idea2thesis.git_ops import create_milestone_commit, initialize_repository
 from idea2thesis.job_store import JobStore
 from idea2thesis.orchestrator import SupervisorOrchestrator
 from idea2thesis.parser import parse_brief
+from idea2thesis.providers.runner import build_agent_provider_configs
 from idea2thesis.secrets import delete_job_secret, read_job_secret
 from idea2thesis.storage import JobPaths
 
@@ -43,8 +45,9 @@ class AsyncJobWorker:
 
         record = self.job_store.get_job_record(claimed.job_id)
         secret_path = Path(record.secret_file_path) if record.secret_file_path else None
+        secret_envelope = None
         if secret_path is not None:
-            read_job_secret(self.settings, secret_path)
+            secret_envelope = read_job_secret(self.settings, secret_path)
 
         workspace_path = Path(record.workspace_path)
         paths = JobPaths(
@@ -58,7 +61,50 @@ class AsyncJobWorker:
         brief = parse_brief(Path(record.input_file_path))
         initialize_repository(paths.workspace_dir)
         executor = LocalCommandExecutor(paths.workspace_dir)
-        snapshot = self.orchestrator.run_job(claimed.job_id, brief, paths, executor)
+        provider_configs = None
+        if secret_envelope is not None:
+            resolved_configs: dict[str, GlobalRuntimeConfig] = {}
+            overrides: dict[str, AgentRuntimeOverride] = {}
+            for role in [agent.role for agent in claimed.agents]:
+                preset = claimed.runtime_preset.agents.get(role)
+                if preset is None or preset.use_global:
+                    resolved_configs[role] = GlobalRuntimeConfig(
+                        api_key=secret_envelope.global_api_key,
+                        base_url=claimed.runtime_preset.global_config.base_url,
+                        model=claimed.runtime_preset.global_config.model,
+                    )
+                    overrides[role] = AgentRuntimeOverride(use_global=True)
+                else:
+                    resolved_configs[role] = GlobalRuntimeConfig(
+                        api_key=secret_envelope.per_agent_api_keys.get(role, secret_envelope.global_api_key),
+                        base_url=preset.base_url or claimed.runtime_preset.global_config.base_url,
+                        model=preset.model or claimed.runtime_preset.global_config.model,
+                    )
+                    overrides[role] = AgentRuntimeOverride(
+                        use_global=False,
+                        base_url=preset.base_url,
+                        model=preset.model,
+                    )
+            provider_configs = build_agent_provider_configs(
+                resolved_configs=resolved_configs,
+                overrides=overrides,
+                per_agent_api_keys=secret_envelope.per_agent_api_keys,
+            )
+        snapshot = self.orchestrator.run_job(
+            claimed.job_id,
+            brief,
+            paths,
+            executor,
+            on_progress=lambda stage, agents, event_kind, event_message, payload: self.job_store.record_job_progress(
+                job_id=claimed.job_id,
+                stage=stage,
+                agent_statuses=agents,
+                event_kind=event_kind,
+                event_message=event_message,
+                payload=payload,
+            ),
+            provider_configs=provider_configs,
+        )
         self.job_store.mark_job_completed(snapshot, clear_secret_file=True)
         create_milestone_commit(
             paths.workspace_dir, "feat: initialize generated workspace"

@@ -11,7 +11,7 @@ export function AgentBoard(props: AgentBoardProps) {
       <ul>
         {props.agents.map((agent) => (
           <li key={agent.role}>
-            {agent.role}: {agent.status}
+            {agent.role}: {agent.summary || agent.status} ({agent.status})
           </li>
         ))}
       </ul>
