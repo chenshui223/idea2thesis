@@ -246,6 +246,8 @@ export default function App() {
   const [rerunError, setRerunError] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [artifactPreviewTitle, setArtifactPreviewTitle] = useState("");
+  const [artifactPreviewFileName, setArtifactPreviewFileName] = useState("");
+  const [artifactPreviewKind, setArtifactPreviewKind] = useState("");
   const [artifactPreviewContent, setArtifactPreviewContent] = useState("");
   const [artifactPreviewTruncated, setArtifactPreviewTruncated] = useState(false);
   const [artifactPreviewError, setArtifactPreviewError] = useState("");
@@ -609,6 +611,8 @@ export default function App() {
       return;
     }
     setArtifactPreviewTitle(artifact.path);
+    setArtifactPreviewFileName(artifact.path.split("/").pop() ?? "");
+    setArtifactPreviewKind(artifact.kind);
     setArtifactPreviewContent("");
     setArtifactPreviewTruncated(false);
     setArtifactPreviewError("");
@@ -705,6 +709,8 @@ export default function App() {
       />
       <ArtifactPreview
         title={artifactPreviewTitle}
+        fileName={artifactPreviewFileName}
+        artifactKind={artifactPreviewKind}
         content={artifactPreviewContent}
         truncated={artifactPreviewTruncated}
         errorMessage={artifactPreviewError}

@@ -766,6 +766,9 @@ describe("App history workbench", () => {
       )
     );
     expect(await screen.findByText("Artifact Preview")).toBeInTheDocument();
+    expect(screen.getByText("File: pipeline.py")).toBeInTheDocument();
+    expect(screen.getByText("Artifact type: workspace_file")).toBeInTheDocument();
+    expect(screen.getByText("Preview status: complete")).toBeInTheDocument();
     expect(screen.getByText("print('provider generated')")).toBeInTheDocument();
     expect(screen.getByText(/verification_completed/i)).toBeInTheDocument();
   });
