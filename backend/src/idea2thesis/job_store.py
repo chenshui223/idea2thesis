@@ -132,6 +132,18 @@ def _normalize_list_status(value: str) -> str:
     return "deleted" if value == "deleted" else value
 
 
+def _resolve_sort_clause(sort: str) -> str:
+    clauses = {
+        "updated_desc": "updated_at DESC",
+        "created_desc": "created_at DESC",
+        "created_asc": "created_at ASC",
+    }
+    try:
+        return clauses[sort]
+    except KeyError as exc:
+        raise ValueError(f"invalid sort: {sort}") from exc
+
+
 class JobStore:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -356,11 +368,7 @@ class JobStore:
             clauses.append("(brief_title LIKE ? OR id LIKE ?)")
             params.extend([f"%{query}%", f"%{query}%"])
         where_clause = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-        order_clause = {
-            "updated_desc": "updated_at DESC",
-            "created_desc": "created_at DESC",
-            "created_asc": "created_at ASC",
-        }[sort]
+        order_clause = _resolve_sort_clause(sort)
         with open_connection(self.settings) as connection:
             total = connection.execute(
                 f"SELECT COUNT(*) FROM jobs {where_clause}", tuple(params)
@@ -518,10 +526,10 @@ class JobStore:
             connection.execute(
                 """
                 UPDATE jobs
-                SET status = ?, deleted_at = ?, updated_at = ?
+                SET status = ?, final_disposition = ?, deleted_at = ?, updated_at = ?
                 WHERE id = ?
                 """,
-                ("deleted", now, now, job_id),
+                ("deleted", "deleted", now, now, job_id),
             )
             connection.execute(
                 """

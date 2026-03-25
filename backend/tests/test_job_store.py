@@ -492,8 +492,22 @@ def test_soft_delete_job_marks_deleted_and_preserves_files(tmp_path: Path) -> No
 
     deleted = store.soft_delete_job("job-1")
     assert deleted.status == "deleted"
+    assert deleted.final_disposition == "deleted"
     assert deleted.deleted_at is not None
     assert (tmp_path / "jobs" / "job-1").exists()
+
+
+def test_list_jobs_rejects_unknown_sort(tmp_path: Path) -> None:
+    settings = build_settings(tmp_path)
+    initialize_database(settings)
+    store = JobStore(settings)
+
+    try:
+        store.list_jobs(sort="nonsense")
+    except ValueError as exc:
+        assert "invalid sort" in str(exc)
+    else:
+        raise AssertionError("expected invalid sort to fail")
 
 
 def test_soft_delete_rejects_non_terminal_jobs(tmp_path: Path) -> None:

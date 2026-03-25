@@ -1,270 +1,623 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, test, vi } from "vitest";
+import { render, screen, waitFor, within } from "@testing-library/react";
 
 import App from "./App";
 
-const SETTINGS_CACHE_KEY = "idea2thesis.settings.cache";
+function mockResponse(body: unknown, ok = true, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  }) as Response;
+}
 
-afterEach(() => {
-  vi.useRealTimers();
-  vi.unstubAllGlobals();
-  window.localStorage.clear();
-});
-
-test("shows validation error when no file is selected", async () => {
-  const user = userEvent.setup();
-  render(<App />);
-  await user.click(screen.getByRole("button", { name: "Generate Project" }));
-  expect(screen.getByText("Please select a .docx brief first.")).toBeInTheDocument();
-});
-
-test("uploads file, shows generating state, and renders returned snapshot", async () => {
-  const intervalCallbacks: Array<() => void | Promise<void>> = [];
-  vi.spyOn(window, "setInterval").mockImplementation((handler) => {
-    intervalCallbacks.push(handler as () => void | Promise<void>);
-    return 1;
+function mockSettingsResponse() {
+  return mockResponse({
+    schema_version: "v1alpha1",
+    global: { base_url: "https://api.example.com/v1", model: "gpt-4.1-mini" },
+    agents: {},
+    api_key_configured: false
   });
-  vi.spyOn(window, "clearInterval").mockImplementation(() => {});
-  const user = userEvent.setup();
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
+}
+
+describe("App history workbench", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  test("loads history list and auto-selects first row", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      mockSettingsResponse()
+    );
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      mockResponse({
         schema_version: "v1alpha1",
-        global: {
-          base_url: "https://api.openai.com/v1",
-          model: "gpt-4.1-mini"
-        },
-        agents: {},
-        api_key_configured: false
-      })
-    })
-    .mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        schema_version: "v1alpha1",
-        job_id: "job-1",
-        stage: "queued",
-        status: "pending",
-        agents: [{ role: "coder", status: "pending", summary: "" }],
-        artifacts: [],
-        validation_state: "pending",
-        final_disposition: "pending"
-      })
-    })
-    .mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        schema_version: "v1alpha1",
-        job_id: "job-1",
-        stage: "running",
-        status: "running",
-        agents: [{ role: "coder", status: "running", summary: "generating code" }],
-        artifacts: [],
-        validation_state: "running",
-        final_disposition: "pending"
-      })
-    })
-    .mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        schema_version: "v1alpha1",
-        job_id: "job-1",
-        stage: "completed",
-        status: "completed",
-        agents: [{ role: "coder", status: "done", summary: "generated code" }],
-        artifacts: [{ kind: "verification_report", path: "/tmp/report.json" }],
-        validation_state: "completed",
-        final_disposition: "completed"
-      })
-    });
-  vi.stubGlobal("fetch", fetchMock);
-
-  render(<App />);
-  await user.type(screen.getByLabelText("API Key"), "runtime-key");
-  const file = new File(["demo"], "brief.docx");
-  await user.upload(screen.getByLabelText("Design Brief (.docx)"), file);
-  await user.click(screen.getByRole("button", { name: "Generate Project" }));
-
-  expect(screen.getByRole("button", { name: "Generating..." })).toBeInTheDocument();
-  expect(screen.getByText("Current stage: queued")).toBeInTheDocument();
-
-  expect(intervalCallbacks).toHaveLength(1);
-  const uploadCall = fetchMock.mock.calls[1];
-  const uploadBody = uploadCall[1].body as FormData;
-  const configPayload = JSON.parse(String(uploadBody.get("config")));
-  expect(configPayload.global.api_key).toBe("runtime-key");
-  expect(configPayload.global.base_url).toBe("https://api.openai.com/v1");
-  expect(configPayload.global.model).toBe("gpt-4.1-mini");
-  await act(async () => {
-    await intervalCallbacks[0]();
-  });
-  await waitFor(() => {
-    expect(screen.getByText("Current stage: running")).toBeInTheDocument();
-  });
-  await act(async () => {
-    await intervalCallbacks[0]();
-  });
-  await waitFor(() => {
-    expect(screen.getByText("Current stage: completed")).toBeInTheDocument();
-    expect(screen.getByText(/coder: done/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/verification_report: \/tmp\/report.json/i)
-    ).toBeInTheDocument();
-    expect(screen.getByText("Validation state: completed")).toBeInTheDocument();
-    expect(screen.getByText("Final disposition: completed")).toBeInTheDocument();
-  });
-});
-
-test("shows upload error when request fails", async () => {
-  const user = userEvent.setup();
-  vi.stubGlobal(
-    "fetch",
-    vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          schema_version: "v1alpha1",
-          global: {
-            base_url: "https://api.openai.com/v1",
-            model: "gpt-4.1-mini"
+        total: 2,
+        items: [
+          {
+            job_id: "job-1",
+            title: "First job",
+            status: "completed",
+            stage: "done",
+            final_disposition: "completed",
+            updated_at: "2026-03-25T00:00:00Z"
           },
-          agents: {},
-          api_key_configured: false
-        })
-      })
-      .mockResolvedValueOnce({
-        ok: false
-      })
-  );
-
-  render(<App />);
-  await user.type(screen.getByLabelText("API Key"), "runtime-key");
-  const file = new File(["demo"], "brief.docx");
-  await user.upload(screen.getByLabelText("Design Brief (.docx)"), file);
-  await user.click(screen.getByRole("button", { name: "Generate Project" }));
-
-  expect(screen.getByText("failed to create job")).toBeInTheDocument();
-});
-
-test("restores non-sensitive settings from cache but leaves api key blank", async () => {
-  window.localStorage.setItem(
-    SETTINGS_CACHE_KEY,
-    JSON.stringify({
-      schema_version: "v1alpha1",
-      global: { base_url: "https://cached.example/v1", model: "cached-model" },
-      agents: {
-        coder: {
-          use_global: false,
-          base_url: "https://coder.example/v1",
-          model: "coder-model"
-        }
-      }
-    })
-  );
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(() => new Promise(() => {}))
-  );
-
-  render(<App />);
-
-  expect(screen.getByLabelText("Base URL")).toHaveValue("https://cached.example/v1");
-  expect(screen.getByLabelText("Model")).toHaveValue("cached-model");
-  expect(screen.getByLabelText("API Key")).toHaveValue("");
-});
-
-test("backend settings overwrite cache and advanced overrides flow into upload config", async () => {
-  window.localStorage.setItem(
-    SETTINGS_CACHE_KEY,
-    JSON.stringify({
-      schema_version: "v1alpha1",
-      global: { base_url: "https://stale.example/v1", model: "stale-model" },
-      agents: {}
-    })
-  );
-
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        schema_version: "v1alpha1",
-        global: { base_url: "https://server.example/v1", model: "server-model" },
-        agents: {
-          coder: {
-            use_global: false,
-            base_url: "https://server-coder.example/v1",
-            model: "server-coder-model"
+          {
+            job_id: "job-2",
+            title: "Second job",
+            status: "running",
+            stage: "drafting",
+            final_disposition: "pending",
+            updated_at: "2026-03-25T00:00:01Z"
           }
-        },
-        api_key_configured: false
+        ]
       })
-    })
-    .mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
+    );
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        job_id: "job-1",
+        source_job_id: null,
+        title: "First job",
+        status: "completed",
+        stage: "done",
+        final_disposition: "completed",
+        validation_state: "completed",
+        workspace_path: "/jobs/job-1/workspace",
+        input_file_path: "/jobs/job-1/input/brief.docx",
+        error_message: null,
+        deleted_at: null,
+        runtime_preset: {
+          apiKeyConfigured: true,
+          base_url: "https://api.example.com/v1",
+          model: "gpt-4.1-mini",
+          agents: {
+            coder: {
+              useGlobal: true,
+              base_url: "https://api.example.com/v1",
+              model: "gpt-4.1-mini"
+            }
+          }
+        }
+      })
+    );
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      mockResponse({ schema_version: "v1alpha1", items: [] })
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText("First job")).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /First job/ })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+    expect(screen.getByText("Current job: job-1")).toBeInTheDocument();
+  });
+
+  test("selecting a row updates right-side detail panel", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockResolvedValueOnce(mockSettingsResponse());
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        total: 2,
+        items: [
+          {
+            job_id: "job-1",
+            title: "First job",
+            status: "completed",
+            stage: "done",
+            final_disposition: "completed",
+            updated_at: "2026-03-25T00:00:00Z"
+          },
+          {
+            job_id: "job-2",
+            title: "Second job",
+            status: "running",
+            stage: "drafting",
+            final_disposition: "pending",
+            updated_at: "2026-03-25T00:00:01Z"
+          }
+        ]
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        job_id: "job-1",
+        source_job_id: null,
+        title: "First job",
+        status: "completed",
+        stage: "done",
+        final_disposition: "completed",
+        validation_state: "completed",
+        workspace_path: "/jobs/job-1/workspace",
+        input_file_path: "/jobs/job-1/input/brief.docx",
+        error_message: null,
+        deleted_at: null,
+        runtime_preset: {
+          apiKeyConfigured: true,
+          base_url: "https://api.example.com/v1",
+          model: "gpt-4.1-mini",
+          agents: {
+            coder: {
+              useGlobal: true,
+              base_url: "https://api.example.com/v1",
+              model: "gpt-4.1-mini"
+            }
+          }
+        }
+      })
+    );
+    fetchMock.mockResolvedValueOnce(mockResponse({ schema_version: "v1alpha1", items: [] }));
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
         schema_version: "v1alpha1",
         job_id: "job-2",
-        stage: "completed",
-        status: "completed",
-        agents: [],
-        artifacts: [],
-        validation_state: "completed",
-        final_disposition: "completed"
+        source_job_id: "job-1",
+        title: "Second job",
+        status: "running",
+        stage: "drafting",
+        final_disposition: "pending",
+        validation_state: "running",
+        workspace_path: "/jobs/job-2/workspace",
+        input_file_path: "/jobs/job-2/input/brief.docx",
+        error_message: null,
+        deleted_at: null,
+        runtime_preset: {
+          apiKeyConfigured: false,
+          base_url: "https://api.example.com/v1",
+          model: "gpt-4.1-mini",
+          agents: {}
+        }
       })
-    });
-  vi.stubGlobal("fetch", fetchMock);
-  const user = userEvent.setup();
+    );
+    fetchMock.mockResolvedValueOnce(mockResponse({ schema_version: "v1alpha1", items: [] }));
 
-  render(<App />);
+    render(<App />);
 
-  await waitFor(() => {
-    expect(screen.getByLabelText("Base URL")).toHaveValue("https://server.example/v1");
+    await screen.findByText("First job");
+    await userEvent.click(screen.getByRole("row", { name: /Second job/ }));
+
+    expect(await screen.findByText("Current job: job-2")).toBeInTheDocument();
+    expect(screen.getByText("Second job")).toBeInTheDocument();
   });
-  expect(JSON.parse(window.localStorage.getItem(SETTINGS_CACHE_KEY) ?? "{}").global.base_url).toBe(
-    "https://server.example/v1"
-  );
 
-  await user.type(screen.getByLabelText("API Key"), "global-key");
-  await user.click(screen.getByRole("button", { name: "Advanced Settings" }));
-  await user.clear(screen.getByLabelText("Coder API Key"));
-  await user.type(screen.getByLabelText("Coder API Key"), "coder-key");
-  const file = new File(["demo"], "brief.docx");
-  await user.upload(screen.getByLabelText("Design Brief (.docx)"), file);
-  await user.click(screen.getByRole("button", { name: "Generate Project" }));
+  test("rerun repopulates non-sensitive settings only and selects new job", async () => {
+    let historyRequestCount = 0;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
+      async (input, init) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
 
-  const uploadBody = fetchMock.mock.calls[1][1].body as FormData;
-  const configPayload = JSON.parse(String(uploadBody.get("config")));
-  expect(configPayload.agents.coder.use_global).toBe(false);
-  expect(configPayload.agents.coder.api_key).toBe("coder-key");
-  expect(configPayload.agents.coder.base_url).toBe("https://server-coder.example/v1");
-  expect(configPayload.agents.coder.model).toBe("server-coder-model");
-});
+        if (url === "/settings" && method === "GET") {
+          return mockSettingsResponse();
+        }
+        if (url === "/settings" && method === "PUT") {
+          return mockSettingsResponse();
+        }
+        if ((url === "/jobs" || url === "/jobs?sort=updated_desc") && method === "GET") {
+          historyRequestCount += 1;
+          return mockResponse({
+            schema_version: "v1alpha1",
+            total: historyRequestCount === 1 ? 1 : 2,
+            items:
+              historyRequestCount === 1
+                ? [
+                    {
+                      job_id: "job-1",
+                      title: "First job",
+                      status: "completed",
+                      stage: "done",
+                      final_disposition: "completed",
+                      updated_at: "2026-03-25T00:00:00Z"
+                    }
+                  ]
+                : [
+                    {
+                      job_id: "job-2",
+                      title: "Rerun job",
+                      status: "pending",
+                      stage: "queued",
+                      final_disposition: "pending",
+                      updated_at: "2026-03-25T00:01:00Z"
+                    },
+                    {
+                      job_id: "job-1",
+                      title: "First job",
+                      status: "completed",
+                      stage: "done",
+                      final_disposition: "completed",
+                      updated_at: "2026-03-25T00:00:00Z"
+                    }
+                  ]
+          });
+        }
+        if (url === "/jobs/job-1") {
+          return mockResponse({
+            schema_version: "v1alpha1",
+            job_id: "job-1",
+            source_job_id: null,
+            title: "First job",
+            status: "completed",
+            stage: "done",
+            final_disposition: "completed",
+            validation_state: "completed",
+            workspace_path: "/jobs/job-1/workspace",
+            input_file_path: "/jobs/job-1/input/brief.docx",
+            error_message: null,
+            deleted_at: null,
+            runtime_preset: {
+              apiKeyConfigured: true,
+              base_url: "https://api.example.com/v1",
+              model: "gpt-4.1-mini",
+              agents: {
+                coder: {
+                  useGlobal: true,
+                  base_url: "https://api.example.com/v1",
+                  model: "gpt-4.1-mini"
+                }
+              }
+            }
+          });
+        }
+        if (url === "/jobs/job-1/events") {
+          return mockResponse({ schema_version: "v1alpha1", items: [] });
+        }
+        if (url === "/jobs/job-1/rerun" && method === "POST") {
+          return mockResponse({
+            schema_version: "v1alpha1",
+            job_id: "job-2",
+            source_job_id: "job-1",
+            title: "Rerun job",
+            status: "pending",
+            stage: "queued",
+            final_disposition: "pending",
+            validation_state: "pending",
+            workspace_path: "/jobs/job-2/workspace",
+            input_file_path: "/jobs/job-2/input/brief.docx",
+            error_message: null,
+            deleted_at: null,
+            runtime_preset: {
+              apiKeyConfigured: false,
+              base_url: "https://api.example.com/v1",
+              model: "gpt-4.1-mini",
+              agents: {}
+            }
+          });
+        }
+        if (url === "/jobs/job-2/events") {
+          return mockResponse({ schema_version: "v1alpha1", items: [] });
+        }
+        if (url === "/jobs/job-2") {
+          return mockResponse({
+            schema_version: "v1alpha1",
+            job_id: "job-2",
+            source_job_id: "job-1",
+            title: "Rerun job",
+            status: "pending",
+            stage: "queued",
+            final_disposition: "pending",
+            validation_state: "pending",
+            workspace_path: "/jobs/job-2/workspace",
+            input_file_path: "/jobs/job-2/input/brief.docx",
+            error_message: null,
+            deleted_at: null,
+            runtime_preset: {
+              apiKeyConfigured: false,
+              base_url: "https://api.example.com/v1",
+              model: "gpt-4.1-mini",
+              agents: {}
+            }
+          });
+        }
 
-test("requires global base url and model before submit", async () => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
+        throw new Error(`unexpected fetch: ${method} ${url}`);
+      }
+    );
+
+    render(<App />);
+    await screen.findByText("First job");
+
+    await userEvent.type(screen.getByLabelText("API Key"), "secret-key");
+    await userEvent.clear(screen.getByLabelText("Base URL"));
+    await userEvent.type(screen.getByLabelText("Base URL"), "https://override.example.com/v1");
+    await userEvent.clear(screen.getByLabelText("Model"));
+    await userEvent.type(screen.getByLabelText("Model"), "gpt-4.1");
+
+    await userEvent.click(screen.getByRole("button", { name: "Rerun" }));
+
+    await waitFor(() => expect(screen.getByText("Current job: job-2")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText("API Key")).toHaveValue(""));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Base URL")).toHaveValue("https://api.example.com/v1")
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Model")).toHaveValue("gpt-4.1-mini")
+    );
+  });
+
+  test("delete marks a terminal job deleted and keeps it selected", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockResolvedValueOnce(mockSettingsResponse());
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
         schema_version: "v1alpha1",
-        global: { base_url: "", model: "" },
-        agents: {},
-        api_key_configured: false
+        total: 1,
+        items: [
+          {
+            job_id: "job-1",
+            title: "First job",
+            status: "completed",
+            stage: "done",
+            final_disposition: "completed",
+            updated_at: "2026-03-25T00:00:00Z"
+          }
+        ]
       })
-    })
-  );
-  const user = userEvent.setup();
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        job_id: "job-1",
+        source_job_id: null,
+        title: "First job",
+        status: "completed",
+        stage: "done",
+        final_disposition: "completed",
+        validation_state: "completed",
+        workspace_path: "/jobs/job-1/workspace",
+        input_file_path: "/jobs/job-1/input/brief.docx",
+        error_message: null,
+        deleted_at: null,
+        runtime_preset: {
+          apiKeyConfigured: true,
+          base_url: "https://api.example.com/v1",
+          model: "gpt-4.1-mini",
+          agents: {
+            coder: {
+              useGlobal: true,
+              base_url: "https://api.example.com/v1",
+              model: "gpt-4.1-mini"
+            }
+          }
+        }
+      })
+    );
+    fetchMock.mockResolvedValueOnce(mockResponse({ schema_version: "v1alpha1", items: [] }));
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        job_id: "job-1",
+        source_job_id: null,
+        title: "First job",
+        status: "deleted",
+        stage: "done",
+        final_disposition: "completed",
+        validation_state: "completed",
+        workspace_path: "/jobs/job-1/workspace",
+        input_file_path: "/jobs/job-1/input/brief.docx",
+        error_message: null,
+        deleted_at: "2026-03-25T00:10:00Z",
+        runtime_preset: {
+          apiKeyConfigured: true,
+          base_url: "https://api.example.com/v1",
+          model: "gpt-4.1-mini",
+          agents: {
+            coder: {
+              useGlobal: true,
+              base_url: "https://api.example.com/v1",
+              model: "gpt-4.1-mini"
+            }
+          }
+        }
+      })
+    );
 
-  render(<App />);
-  await user.type(screen.getByLabelText("API Key"), "runtime-key");
-  const file = new File(["demo"], "brief.docx");
-  await user.upload(screen.getByLabelText("Design Brief (.docx)"), file);
-  await user.click(screen.getByRole("button", { name: "Generate Project" }));
+    render(<App />);
+    await screen.findByText("First job");
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
 
-  expect(screen.getByText("Base URL and Model are required.")).toBeInTheDocument();
+    expect(await screen.findByText("Status: deleted")).toBeInTheDocument();
+    expect(screen.getByText("Deleted at: 2026-03-25T00:10:00Z")).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /First job/ })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+  });
+
+  test("search and status filter narrow visible list correctly", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      mockSettingsResponse()
+    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        total: 3,
+        items: [
+          {
+            job_id: "job-1",
+            title: "Alpha research",
+            status: "completed",
+            stage: "done",
+            final_disposition: "completed",
+            updated_at: "2026-03-25T00:00:00Z"
+          },
+          {
+            job_id: "job-2",
+            title: "Beta analysis",
+            status: "running",
+            stage: "drafting",
+            final_disposition: "pending",
+            updated_at: "2026-03-25T00:00:01Z"
+          },
+          {
+            job_id: "job-3",
+            title: "Gamma plan",
+            status: "failed",
+            stage: "review",
+            final_disposition: "failed",
+            updated_at: "2026-03-25T00:00:02Z"
+          }
+        ]
+      })
+    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        job_id: "job-1",
+        source_job_id: null,
+        title: "Alpha research",
+        status: "completed",
+        stage: "done",
+        final_disposition: "completed",
+        validation_state: "completed",
+        workspace_path: "/jobs/job-1/workspace",
+        input_file_path: "/jobs/job-1/input/brief.docx",
+        error_message: null,
+        deleted_at: null,
+        runtime_preset: {
+          apiKeyConfigured: true,
+          base_url: "https://api.example.com/v1",
+          model: "gpt-4.1-mini",
+          agents: {}
+        }
+      })
+    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockResponse({ schema_version: "v1alpha1", items: [] }));
+
+    render(<App />);
+    await screen.findByText("Alpha research");
+
+    await userEvent.type(screen.getByLabelText("Search jobs"), "beta");
+    let historyTable = screen.getByRole("table");
+    expect(within(historyTable).getByText("Beta analysis")).toBeInTheDocument();
+    expect(within(historyTable).queryByText("Alpha research")).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText("Status filter"), "running");
+    historyTable = screen.getByRole("table");
+    expect(within(historyTable).getByText("Beta analysis")).toBeInTheDocument();
+    expect(within(historyTable).queryByText("Gamma plan")).not.toBeInTheDocument();
+  });
+
+  test("selected active job polling only", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockResolvedValueOnce(mockSettingsResponse());
+    fetchMock
+      .mockResolvedValueOnce(
+        mockResponse({
+          schema_version: "v1alpha1",
+          total: 2,
+          items: [
+            {
+              job_id: "job-1",
+              title: "First job",
+              status: "running",
+              stage: "drafting",
+              final_disposition: "pending",
+              updated_at: "2026-03-25T00:00:00Z"
+            },
+            {
+              job_id: "job-2",
+              title: "Second job",
+              status: "running",
+              stage: "drafting",
+              final_disposition: "pending",
+              updated_at: "2026-03-25T00:00:01Z"
+            }
+          ]
+        })
+      )
+      .mockResolvedValueOnce(
+        mockResponse({
+          schema_version: "v1alpha1",
+          job_id: "job-1",
+          source_job_id: null,
+          title: "First job",
+          status: "running",
+          stage: "drafting",
+          final_disposition: "pending",
+          validation_state: "running",
+          workspace_path: "/jobs/job-1/workspace",
+          input_file_path: "/jobs/job-1/input/brief.docx",
+          error_message: null,
+          deleted_at: null,
+          runtime_preset: {
+            apiKeyConfigured: true,
+            base_url: "https://api.example.com/v1",
+            model: "gpt-4.1-mini",
+            agents: {}
+          }
+        })
+      )
+      .mockResolvedValueOnce(mockResponse({ schema_version: "v1alpha1", items: [] }))
+      .mockResolvedValueOnce(
+        mockResponse({
+          schema_version: "v1alpha1",
+          job_id: "job-2",
+          source_job_id: null,
+          title: "Second job",
+          status: "running",
+          stage: "drafting",
+          final_disposition: "pending",
+          validation_state: "running",
+          workspace_path: "/jobs/job-2/workspace",
+          input_file_path: "/jobs/job-2/input/brief.docx",
+          error_message: null,
+          deleted_at: null,
+          runtime_preset: {
+            apiKeyConfigured: true,
+            base_url: "https://api.example.com/v1",
+            model: "gpt-4.1-mini",
+            agents: {}
+          }
+        })
+      )
+      .mockResolvedValueOnce(mockResponse({ schema_version: "v1alpha1", items: [] }))
+      .mockResolvedValueOnce(
+        mockResponse({
+          schema_version: "v1alpha1",
+          job_id: "job-2",
+          source_job_id: null,
+          title: "Second job",
+          status: "running",
+          stage: "drafting",
+          final_disposition: "pending",
+          validation_state: "running",
+          workspace_path: "/jobs/job-2/workspace",
+          input_file_path: "/jobs/job-2/input/brief.docx",
+          error_message: null,
+          deleted_at: null,
+          runtime_preset: {
+            apiKeyConfigured: true,
+            base_url: "https://api.example.com/v1",
+            model: "gpt-4.1-mini",
+            agents: {}
+          }
+        })
+      )
+      .mockResolvedValueOnce(mockResponse({ schema_version: "v1alpha1", items: [] }));
+
+    render(<App />);
+    await screen.findByText("First job");
+
+    await user.click(screen.getByRole("row", { name: /Second job/ }));
+    await waitFor(() => expect(screen.getByText("Current job: job-2")).toBeInTheDocument());
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter(([input]) => String(input).includes("/jobs/job-2")).length
+      ).toBeGreaterThan(1)
+    );
+
+    const job1Calls = fetchMock.mock.calls.filter(([input]) => String(input).includes("/jobs/job-1"));
+    const job2Calls = fetchMock.mock.calls.filter(([input]) => String(input).includes("/jobs/job-2"));
+    expect(job2Calls.length).toBeGreaterThanOrEqual(job1Calls.length);
+  });
 });

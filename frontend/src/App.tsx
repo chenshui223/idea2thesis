@@ -1,9 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 
-import { fetchJob, fetchSettings, saveSettings, uploadBrief } from "./api";
+import {
+  deleteJob,
+  fetchJobDetail,
+  fetchJobEvents,
+  fetchJobs,
+  fetchSettings,
+  rerunJob,
+  saveSettings,
+  uploadBrief
+} from "./api";
 import { AgentBoard } from "./components/AgentBoard";
 import { AgentConfigPanel } from "./components/AgentConfigPanel";
 import { ArtifactList } from "./components/ArtifactList";
+import { HistoryList } from "./components/HistoryList";
+import { JobDetailPanel } from "./components/JobDetailPanel";
+import { JobEventTimeline } from "./components/JobEventTimeline";
 import { JobTimeline } from "./components/JobTimeline";
 import { SettingsForm } from "./components/SettingsForm";
 import { UploadForm } from "./components/UploadForm";
@@ -13,6 +25,10 @@ import {
   type AgentRole,
   type AgentSettings,
   type GlobalSettings,
+  type HistoryListItem,
+  type JobDetail,
+  type JobEvent,
+  type JobListQuery,
   type JobSnapshot,
   type PersistedSettings,
   type RuntimeConfig,
@@ -31,6 +47,7 @@ const emptySnapshot: JobSnapshot = {
 };
 
 const SETTINGS_CACHE_KEY = "idea2thesis.settings.cache";
+const HISTORY_QUERY_KEY = "idea2thesis.history.query";
 
 function buildDefaultAgentSettings(): Record<AgentRole, AgentSettings> {
   return Object.fromEntries(
@@ -49,10 +66,16 @@ function buildDefaultAgentSettings(): Record<AgentRole, AgentSettings> {
 function readCachedSettings(): PersistedSettings | null {
   try {
     const raw = window.localStorage.getItem(SETTINGS_CACHE_KEY);
-    if (!raw) {
-      return null;
-    }
-    return JSON.parse(raw) as PersistedSettings;
+    return raw ? (JSON.parse(raw) as PersistedSettings) : null;
+  } catch {
+    return null;
+  }
+}
+
+function readCachedHistoryQuery(): JobListQuery | null {
+  try {
+    const raw = window.localStorage.getItem(HISTORY_QUERY_KEY);
+    return raw ? (JSON.parse(raw) as JobListQuery) : null;
   } catch {
     return null;
   }
@@ -145,22 +168,82 @@ function buildRuntimeConfig(
   };
 }
 
+function buildRuntimePresetConfig(detail: JobDetail): RuntimeConfig {
+  return {
+    schema_version: "v1alpha1",
+    global: {
+      api_key: "",
+      base_url: detail.runtime_preset.global.base_url,
+      model: detail.runtime_preset.global.model
+    },
+    agents: Object.fromEntries(
+      Object.entries(detail.runtime_preset.agents).map(([role, agent]) => [
+        role,
+        {
+          use_global: agent.useGlobal,
+          api_key: "",
+          base_url: agent.base_url,
+          model: agent.model
+        }
+      ])
+    )
+  };
+}
+
+function isTerminal(snapshot: JobSnapshot | JobDetail) {
+  return ["completed", "failed", "blocked", "interrupted", "deleted"].includes(
+    snapshot.final_disposition
+  );
+}
+
+function isDeleted(detail: JobDetail) {
+  return detail.status === "deleted" || Boolean(detail.deleted_at);
+}
+
+function buildSelectedSnapshot(detail: JobDetail): JobSnapshot {
+  return {
+    schema_version: detail.schema_version,
+    job_id: detail.job_id,
+    stage: detail.stage,
+    status: detail.status,
+    agents: detail.agents ?? [],
+    artifacts: detail.artifacts ?? [],
+    validation_state: detail.validation_state,
+    final_disposition: detail.final_disposition
+  };
+}
+
 export default function App() {
   const cachedSettings = readCachedSettings();
   const initialSettings = mergePersistedSettings(cachedSettings);
+  const cachedQuery = readCachedHistoryQuery();
+
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(
     initialSettings.global
   );
-  const [agentSettings, setAgentSettings] = useState<
-    Record<AgentRole, AgentSettings>
-  >(initialSettings.agents);
+  const [agentSettings, setAgentSettings] = useState<Record<AgentRole, AgentSettings>>(
+    initialSettings.agents
+  );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [snapshot, setSnapshot] = useState<JobSnapshot>(emptySnapshot);
+  const [selectedJob, setSelectedJob] = useState<JobDetail | null>(null);
+  const [selectedJobEvents, setSelectedJobEvents] = useState<JobEvent[]>([]);
+  const [historyItems, setHistoryItems] = useState<HistoryListItem[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyQuery, setHistoryQuery] = useState<JobListQuery>(
+    cachedQuery ?? { search: "", status: "all", sort: "updated_desc" }
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [historyError, setHistoryError] = useState("");
+  const [detailError, setDetailError] = useState("");
+  const [eventsError, setEventsError] = useState("");
+  const [rerunError, setRerunError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const pollTimerRef = useRef<number | null>(null);
+  const selectedJobId = selectedJob?.job_id ?? snapshot.job_id;
 
   const stopPolling = () => {
     if (pollTimerRef.current !== null) {
@@ -170,59 +253,110 @@ export default function App() {
     setIsPolling(false);
   };
 
-  useEffect(() => {
-    let cancelled = false;
-    void fetchSettings()
-      .then((settings) => {
-        if (cancelled) {
-          return;
-        }
-        const merged = mergePersistedSettings(settings);
-        setGlobalSettings((current) => ({
-          ...merged.global,
-          apiKey: current.apiKey
-        }));
-        setAgentSettings((current) => {
-          const nextSettings = { ...merged.agents };
-          for (const role of AGENT_ROLES) {
-            nextSettings[role] = {
-              ...merged.agents[role],
-              apiKey: current[role]?.apiKey ?? ""
-            };
-          }
-          return nextSettings;
-        });
-        window.localStorage.setItem(
-          SETTINGS_CACHE_KEY,
-          JSON.stringify(toPersistedSettings(merged.global, merged.agents))
-        );
-      })
-      .catch(() => {
-        return;
-      });
-
-    return () => {
-      cancelled = true;
-      stopPolling();
+  const syncSettingsFromRuntimePreset = (detail: JobDetail) => {
+    const nextGlobalSettings: GlobalSettings = {
+      apiKey: "",
+      baseUrl: detail.runtime_preset.global.base_url,
+      model: detail.runtime_preset.global.model
     };
-  }, []);
+    const nextAgentSettings = Object.fromEntries(
+      AGENT_ROLES.map((role) => {
+        const agent = detail.runtime_preset.agents[role];
+        return [
+          role,
+          agent
+            ? {
+                useGlobal: agent.useGlobal,
+                apiKey: "",
+                baseUrl: agent.base_url,
+                model: agent.model
+              }
+            : {
+                useGlobal: true,
+                apiKey: "",
+                baseUrl: detail.runtime_preset.global.base_url,
+                model: detail.runtime_preset.global.model
+              }
+        ];
+      })
+    ) as Record<AgentRole, AgentSettings>;
 
-  const isTerminal = (jobSnapshot: JobSnapshot) =>
-    ["completed", "failed", "blocked"].includes(jobSnapshot.final_disposition);
+    setGlobalSettings(nextGlobalSettings);
+    setAgentSettings(nextAgentSettings);
+    window.localStorage.setItem(
+      SETTINGS_CACHE_KEY,
+      JSON.stringify(toPersistedSettings(nextGlobalSettings, nextAgentSettings))
+    );
+  };
+
+  const loadHistory = async (query: JobListQuery) => {
+    setHistoryError("");
+    try {
+      const response = await fetchJobs(query);
+      setHistoryItems(response.items);
+      setHistoryTotal(response.total);
+      window.localStorage.setItem(HISTORY_QUERY_KEY, JSON.stringify(query));
+      return response.items;
+    } catch (error) {
+      setHistoryError(
+        error instanceof Error ? error.message : "failed to load history"
+      );
+      return null;
+    }
+  };
+
+  const loadDetail = async (jobId: string) => {
+    setDetailError("");
+    try {
+      const detail = await fetchJobDetail(jobId);
+      setSelectedJob(detail);
+      setSnapshot(buildSelectedSnapshot(detail));
+      return detail;
+    } catch (error) {
+      setDetailError(
+        error instanceof Error ? error.message : "failed to load job detail"
+      );
+      return null;
+    }
+  };
+
+  const loadEvents = async (jobId: string) => {
+    setEventsError("");
+    try {
+      const response = await fetchJobEvents(jobId);
+      setSelectedJobEvents(response.items);
+    } catch (error) {
+      setEventsError(
+        error instanceof Error ? error.message : "failed to load job events"
+      );
+    }
+  };
+
+  const selectJob = async (jobId: string) => {
+    stopPolling();
+    const detail = await loadDetail(jobId);
+    if (detail) {
+      await loadEvents(jobId);
+      if (!isTerminal(detail) && !isDeleted(detail)) {
+        startPolling(jobId);
+      }
+    }
+  };
 
   const startPolling = (jobId: string) => {
     stopPolling();
     setIsPolling(true);
     pollTimerRef.current = window.setInterval(async () => {
       try {
-        const nextSnapshot = await fetchJob(jobId);
-        setSnapshot(nextSnapshot);
-        if (isTerminal(nextSnapshot)) {
+        const nextDetail = await fetchJobDetail(jobId);
+        setSelectedJob(nextDetail);
+        setSnapshot(buildSelectedSnapshot(nextDetail));
+        if (isTerminal(nextDetail) || isDeleted(nextDetail)) {
           stopPolling();
         }
       } catch (error) {
         stopPolling();
-        setErrorMessage(
+        setDetailError(
           error instanceof Error ? error.message : "failed to refresh job"
         );
       }
@@ -310,6 +444,9 @@ export default function App() {
     try {
       const initialSnapshot = await uploadBrief(selectedFile, runtimeConfig);
       setSnapshot(initialSnapshot);
+      setSelectedJob(null);
+      setSelectedJobEvents([]);
+      await loadHistory(historyQuery);
       if (isTerminal(initialSnapshot)) {
         stopPolling();
       } else {
@@ -323,6 +460,141 @@ export default function App() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleRerun = async () => {
+    if (!selectedJob) {
+      return;
+    }
+    setRerunError("");
+    try {
+      const runtimeConfig = buildRuntimeConfig(globalSettings, agentSettings);
+      const nextDetail = await rerunJob(selectedJob.job_id, runtimeConfig);
+      syncSettingsFromRuntimePreset(nextDetail);
+      setGlobalSettings((current) => ({ ...current, apiKey: "" }));
+      setAgentSettings((current) =>
+        Object.fromEntries(
+          AGENT_ROLES.map((role) => [
+            role,
+            {
+              ...current[role],
+              apiKey: ""
+            }
+          ])
+        ) as Record<AgentRole, AgentSettings>
+      );
+      setSelectedJob(nextDetail);
+      setSnapshot(buildSelectedSnapshot(nextDetail));
+      await loadHistory(historyQuery);
+      await loadEvents(nextDetail.job_id);
+      if (nextDetail.status === "pending") {
+        startPolling(nextDetail.job_id);
+      } else {
+        stopPolling();
+      }
+    } catch (error) {
+      setRerunError(
+        error instanceof Error ? error.message : "failed to rerun job"
+      );
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedJob) {
+      return;
+    }
+    setDeleteError("");
+    try {
+      const nextDetail = await deleteJob(selectedJob.job_id);
+      setSelectedJob(nextDetail);
+      setSnapshot(buildSelectedSnapshot(nextDetail));
+      await loadHistory(historyQuery);
+      await loadEvents(nextDetail.job_id);
+      stopPolling();
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error ? error.message : "failed to delete job"
+      );
+    }
+  };
+
+  const selectedHistoryItem =
+    historyItems.find((item) => item.job_id === selectedJobId) ?? null;
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchSettings()
+      .then((settings) => {
+        if (cancelled) {
+          return;
+        }
+        const merged = mergePersistedSettings(settings);
+        setGlobalSettings((current) => ({
+          ...merged.global,
+          apiKey: current.apiKey
+        }));
+        setAgentSettings((current) => {
+          const nextSettings = { ...merged.agents };
+          for (const role of AGENT_ROLES) {
+            nextSettings[role] = {
+              ...merged.agents[role],
+              apiKey: current[role]?.apiKey ?? ""
+            };
+          }
+          return nextSettings;
+        });
+        window.localStorage.setItem(
+          SETTINGS_CACHE_KEY,
+          JSON.stringify(toPersistedSettings(merged.global, merged.agents))
+        );
+      })
+      .catch(() => {
+        return;
+      });
+
+    return () => {
+      cancelled = true;
+      stopPolling();
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadHistory(historyQuery).then(async (items) => {
+      if (cancelled || !items || items.length === 0) {
+        return;
+      }
+      const selectedId =
+        selectedJobId && items.some((item) => item.job_id === selectedJobId)
+          ? selectedJobId
+          : items[0].job_id;
+      if (!selectedJobId || selectedId !== selectedJobId) {
+        await selectJob(selectedId);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [historyQuery.search, historyQuery.status, historyQuery.sort]);
+
+  const currentJobId = selectedJob?.job_id ?? snapshot.job_id;
+
+  useEffect(() => {
+    const selectedId = selectedJob?.job_id ?? snapshot.job_id;
+    if (!selectedId) {
+      return;
+    }
+    const current = historyItems.find((item) => item.job_id === selectedId);
+    if (!current) {
+      return;
+    }
+    if (!selectedJob) {
+      void selectJob(selectedId);
+    }
+  }, [historyItems]);
+
+  const handleHistoryQueryChange = (patch: Partial<JobListQuery>) => {
+    setHistoryQuery((current) => ({ ...current, ...patch }));
   };
 
   return (
@@ -365,6 +637,37 @@ export default function App() {
           void handleSubmit();
         }}
       />
+      <section>
+        <h2>History Workbench</h2>
+        {historyError ? <p>{historyError}</p> : null}
+        {detailError ? <p>{detailError}</p> : null}
+        {eventsError ? <p>{eventsError}</p> : null}
+        {rerunError ? <p>{rerunError}</p> : null}
+        {deleteError ? <p>{deleteError}</p> : null}
+        <div>
+          <HistoryList
+            items={historyItems}
+            total={historyTotal}
+            query={historyQuery}
+            selectedJobId={currentJobId}
+            onSelectJob={(jobId) => {
+              void selectJob(jobId);
+            }}
+            onQueryChange={handleHistoryQueryChange}
+          />
+          <JobDetailPanel
+            job={selectedJob}
+            selectedHistoryItem={selectedHistoryItem}
+            onRerun={() => {
+              void handleRerun();
+            }}
+            onDelete={() => {
+              void handleDelete();
+            }}
+          />
+        </div>
+        <JobEventTimeline events={selectedJobEvents} />
+      </section>
       <JobTimeline stage={snapshot.stage} />
       <AgentBoard agents={snapshot.agents} />
       <ArtifactList artifacts={snapshot.artifacts} />

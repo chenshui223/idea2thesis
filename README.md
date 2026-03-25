@@ -110,6 +110,38 @@ In the current frontend:
 - a separate local worker process claims and executes the job
 - the dashboard then polls `GET /jobs/{job_id}` until the job reaches a terminal result
 
+## History Workbench
+
+The web app now includes a persistent history workbench:
+
+- `GET /jobs` backs the left-side history list with search, status filter, and sort
+- all jobs remain visible by default, including `deleted`
+- selecting a row loads durable job detail plus the ordered event timeline
+- only the currently selected active job is polled
+
+### Rerun
+
+Rerun reuses:
+
+- the original uploaded `.docx`
+- persisted non-sensitive runtime settings such as `Base URL`, `Model`, and per-agent override switches
+
+Rerun does not reuse:
+
+- global `API Key`
+- per-agent `API Key`
+
+Users must enter a fresh runtime API key before rerunning a job.
+
+### Delete
+
+Delete is soft delete only:
+
+- only terminal jobs can be deleted
+- deleting a job changes its durable status to `deleted`
+- deleted jobs remain visible in the history list and detail panel
+- workspaces, artifacts, and uploaded files are kept on disk in v1
+
 ## Verification Evidence
 
 Repository verification evidence is stored under `artifacts/verification/`.

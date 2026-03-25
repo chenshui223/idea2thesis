@@ -83,3 +83,68 @@ export type PersistedSettings = {
 export type SettingsResponse = PersistedSettings & {
   api_key_configured: boolean;
 };
+
+export type HistoryListItem = {
+  job_id: string;
+  brief_title: string;
+  status: string;
+  stage: string;
+  final_disposition: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HistoryListResponse = {
+  schema_version: string;
+  items: HistoryListItem[];
+  total: number;
+};
+
+export type RuntimePresetAgent = {
+  useGlobal: boolean;
+  base_url: string;
+  model: string;
+};
+
+export type RuntimePreset = {
+  schema_version: string;
+  global: {
+    base_url: string;
+    model: string;
+  };
+  agents: Record<string, RuntimePresetAgent>;
+};
+
+export type JobDetail = JobSnapshot & {
+  source_job_id: string | null;
+  brief_title: string;
+  workspace_path: string;
+  input_file_path: string;
+  error_message: string;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  runtime_preset: RuntimePreset;
+};
+
+export type JobEvent = {
+  schema_version?: string;
+  id: number;
+  timestamp: string;
+  kind: string;
+  message: string;
+  payload: Record<string, unknown>;
+};
+
+export type JobEventsResponse = {
+  schema_version: string;
+  items: JobEvent[];
+};
+
+export type JobListQuery = {
+  search: string;
+  status: string;
+  sort: string;
+};

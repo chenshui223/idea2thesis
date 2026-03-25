@@ -168,6 +168,7 @@ class ApplicationService:
         self, source_job_id: str, runtime_config: JobRuntimeConfig
     ) -> JobDetailResponse:
         new_job_id = uuid4().hex[:12]
+        self.orchestrator.resolve_effective_agent_configs(runtime_config)
         source = self.job_store.get_job(source_job_id)
         runtime_inputs = {
             "global_base_url": runtime_config.global_config.base_url,
@@ -175,13 +176,29 @@ class ApplicationService:
             "agents_json": self._persisted_runtime_agents_json(runtime_config),
             "api_key_required": True,
         }
-        secret_path = self.settings.secret_dir / f"{new_job_id}.bin"
+        secret_path = write_job_secret(
+            self.settings,
+            new_job_id,
+            JobSecretEnvelope(
+                global_api_key=runtime_config.global_config.api_key,
+                per_agent_api_keys={
+                    role: override.api_key
+                    for role, override in runtime_config.agents.items()
+                    if override.api_key.strip()
+                },
+            ),
+        )
         return self.job_store.create_rerun_job(
             source_job_id=source.job_id,
             new_job_id=new_job_id,
             secret_file_path=str(secret_path),
             runtime_inputs=runtime_inputs,
-            agents=list(source.runtime_preset.agents.keys()),
+            agents=[
+                task.role
+                for task in self.orchestrator.build_plan(
+                    parse_brief(Path(source.input_file_path))
+                ).tasks
+            ],
         )
 
     def delete_job(self, job_id: str) -> JobDetailResponse:

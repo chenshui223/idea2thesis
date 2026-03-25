@@ -126,6 +126,13 @@ def test_get_jobs_supports_query_params(tmp_path: Path) -> None:
     assert response.status_code == 200
 
 
+def test_get_jobs_rejects_invalid_sort(tmp_path: Path) -> None:
+    client = build_client(tmp_path)
+    response = client.get("/jobs", params={"sort": "bogus"})
+
+    assert response.status_code == 422
+
+
 def test_get_job_returns_enriched_detail_without_secrets(tmp_path: Path) -> None:
     client = build_client(tmp_path)
     response = client.get("/jobs/job-1")

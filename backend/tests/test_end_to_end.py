@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from idea2thesis.config import Settings
 from idea2thesis.db import open_connection
 from idea2thesis.main import create_app
+from idea2thesis.secrets import read_job_secret
 
 
 def test_create_job_from_uploaded_brief_returns_snapshot_and_artifacts(tmp_path: Path) -> None:
@@ -299,3 +300,105 @@ def test_job_creation_does_not_persist_agent_api_keys(tmp_path: Path) -> None:
     assert row is not None
     assert "coder-secret" not in str(row[0])
     assert '"api_key"' not in str(row[0])
+
+
+def test_rerun_writes_fresh_secret_and_uses_submitted_runtime_config(tmp_path: Path) -> None:
+    file_path = tmp_path / "brief.docx"
+    document = Document()
+    document.add_heading("图书管理系统", level=1)
+    document.save(file_path)
+
+    settings = Settings(
+        jobs_dir=tmp_path / "jobs",
+        api_key="",
+        base_url="https://example.com/v1",
+        model="gpt-test",
+        settings_file=tmp_path / ".idea2thesis" / "settings.json",
+        database_path=tmp_path / ".idea2thesis" / "jobs.db",
+        secret_key_path=tmp_path / ".idea2thesis" / "secret.key",
+        secret_dir=tmp_path / ".idea2thesis" / "job-secrets",
+    )
+    client = TestClient(create_app(settings))
+    with file_path.open("rb") as handle:
+        created = client.post(
+            "/jobs",
+            files={
+                "file": (
+                    "brief.docx",
+                    handle.read(),
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            },
+            data={
+                "config": """
+                {
+                  "schema_version": "v1alpha1",
+                  "global": {
+                    "api_key": "runtime-key",
+                    "base_url": "https://example.com/v1",
+                    "model": "gpt-test"
+                  },
+                  "agents": {
+                    "coder": {
+                      "use_global": false,
+                      "api_key": "coder-key-1",
+                      "base_url": "https://coder.example.com/v1",
+                      "model": "gpt-coder-1"
+                    }
+                  }
+                }
+                """
+            },
+        )
+    assert created.status_code == 201
+    source_job_id = created.json()["job_id"]
+
+    with open_connection(settings) as connection:
+        connection.execute(
+            "UPDATE jobs SET status = ?, stage = ?, validation_state = ?, final_disposition = ? WHERE id = ?",
+            ("completed", "completed", "completed", "completed", source_job_id),
+        )
+        connection.commit()
+
+    rerun = client.post(
+        f"/jobs/{source_job_id}/rerun",
+        data={
+            "config": """
+            {
+              "schema_version": "v1alpha1",
+              "global": {
+                "api_key": "runtime-key-2",
+                "base_url": "https://rerun.example.com/v1",
+                "model": "gpt-rerun"
+              },
+              "agents": {
+                "coder": {
+                  "use_global": false,
+                  "api_key": "coder-key-2",
+                  "base_url": "https://rerun-coder.example.com/v1",
+                  "model": "gpt-rerun-coder"
+                }
+              }
+            }
+            """
+        },
+    )
+
+    assert rerun.status_code == 201
+    body = rerun.json()
+    assert body["runtime_preset"]["global"]["base_url"] == "https://rerun.example.com/v1"
+    assert body["runtime_preset"]["global"]["model"] == "gpt-rerun"
+    assert body["runtime_preset"]["agents"]["coder"]["base_url"] == "https://rerun-coder.example.com/v1"
+    assert body["runtime_preset"]["agents"]["coder"]["model"] == "gpt-rerun-coder"
+
+    with open_connection(settings) as connection:
+        row = connection.execute(
+            "SELECT secret_file_path FROM jobs WHERE id = ?",
+            (body["job_id"],),
+        ).fetchone()
+    assert row is not None
+    secret_path = Path(str(row[0]))
+    assert secret_path.exists()
+    envelope = read_job_secret(settings, secret_path)
+    assert envelope.global_api_key == "runtime-key-2"
+    assert envelope.per_agent_api_keys["coder"] == "coder-key-2"

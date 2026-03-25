@@ -47,9 +47,12 @@ def create_router(service: ApplicationService) -> APIRouter:
         offset: int = 0,
         sort: str = "updated_desc",
     ) -> dict[str, object]:
-        return service.list_jobs(
-            status=status, query=query, sort=sort, limit=limit, offset=offset
-        ).model_dump(by_alias=True)
+        try:
+            return service.list_jobs(
+                status=status, query=query, sort=sort, limit=limit, offset=offset
+            ).model_dump(by_alias=True)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @router.get("/jobs/{job_id}")
     def get_job(job_id: str) -> dict[str, object]:
