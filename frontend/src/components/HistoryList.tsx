@@ -64,6 +64,17 @@ export function HistoryList(props: HistoryListProps) {
         </select>
       </label>
       <p>Total jobs: {props.total}</p>
+      {props.total === 0 ? (
+        <section>
+          <h3>No jobs yet.</h3>
+          <p>Start with a sample brief or upload your own .docx design brief.</p>
+          <p>1. Download Sample Brief</p>
+          <p>2. Enter API Key, Base URL, and Model</p>
+          <p>3. Click Generate Project</p>
+        </section>
+      ) : filteredItems.length === 0 ? (
+        <p>No jobs match the current search or status filter.</p>
+      ) : null}
       <table>
         <thead>
           <tr>

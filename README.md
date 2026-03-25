@@ -134,6 +134,7 @@ The web app now includes a persistent history workbench:
 - selecting a row loads durable job detail plus the ordered event timeline
 - only the currently selected active job is polled
 - completed or retained jobs can export the generated `workspace/` as a ZIP from the detail panel
+- when there are no jobs yet, the history panel shows first-run guidance with the recommended startup steps
 
 ### Rerun
 

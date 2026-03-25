@@ -1252,4 +1252,30 @@ describe("App history workbench", () => {
     expect(anchorRemove).toHaveBeenCalled();
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:sample-brief");
   });
+
+  test("shows first-run empty state guidance when there are no jobs", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockResolvedValueOnce(mockSettingsResponse());
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        total: 0,
+        items: []
+      })
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText("No jobs yet.")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Start with a sample brief or upload your own .docx design brief."
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByText("1. Download Sample Brief")).toBeInTheDocument();
+    expect(
+      screen.getByText("2. Enter API Key, Base URL, and Model")
+    ).toBeInTheDocument();
+    expect(screen.getByText("3. Click Generate Project")).toBeInTheDocument();
+  });
 });
