@@ -16,12 +16,14 @@ The worker process will:
 - claim pending jobs from persistent storage
 - execute the job lifecycle outside the web server process
 - write status, stage, agent progress, artifacts, and events back to persistent storage
+- load per-job runtime secrets from a local encrypted handoff file and delete them after terminal completion
 
 Source of truth for v1:
 
 - SQLite is the durable source of truth for job list, job detail, and job progress
 - filesystem workspaces remain the source of truth for generated files and uploaded inputs
 - in-memory process state is only a short-lived execution cache and must not be required to reconstruct job status after restart
+- runtime `API Key` values must not be stored in SQLite and must only be handed to the worker through local encrypted secret files
 
 ## Goals
 
@@ -39,6 +41,7 @@ Source of truth for v1:
 - Real multi-machine worker scaling in v1.
 - Full history workbench UI in this change.
 - Automatic recovery of unfinished jobs after restart.
+- Zero secret material on disk during queued execution, because an independent worker requires a durable handoff mechanism.
 
 ## User Experience
 
@@ -54,7 +57,8 @@ Source of truth for v1:
 ### Restart Behavior
 
 1. Web server or worker process stops while a job is `pending` or `running`.
-2. On next startup, unfinished jobs are marked as `interrupted`.
+2. On next worker startup, stale `running` jobs from the previous worker session are marked as `interrupted`.
+3. `pending` jobs remain queued and are still eligible to run.
 3. These jobs remain queryable and visible in future history views.
 4. User may later rerun the job from persisted input and non-sensitive settings.
 
@@ -87,6 +91,22 @@ SQLite best matches the product constraints:
 - simpler than external queue infrastructure
 - more queryable and durable than an ad hoc file queue
 
+## Runtime Secret Handoff
+
+An independent worker cannot rely on request-scoped memory, so v1 needs a durable but non-database handoff for runtime secrets.
+
+Rules:
+
+- runtime `API Key` values must never be written to SQLite
+- runtime `API Key` values must never be returned from any API response
+- on `POST /jobs`, the API process writes a per-job encrypted secret file under the local application workspace
+- the encryption key is stored in a machine-local file that is not committed to git
+- the job record may store a non-sensitive reference to the secret file path
+- the worker decrypts the secret file only when it claims the job
+- the worker deletes the secret file after terminal completion, failure, block, or interruption reconciliation
+
+This keeps secrets out of the database while still allowing durable queueing for a separate worker process.
+
 ## Durable Data Model
 
 ### `jobs`
@@ -107,6 +127,7 @@ Core row for each job:
 - `source_job_id`
 - `workspace_path`
 - `input_file_path`
+- `secret_file_path`
 - `error_message`
 - `validation_state`
 - `final_disposition`
@@ -168,6 +189,18 @@ Persist rerun-safe runtime metadata only:
 
 This table must not store any actual `API Key`.
 
+### `workers`
+
+Track active worker sessions:
+
+- `id`
+- `started_at`
+- `last_heartbeat_at`
+- `status`
+  - `starting | active | stopping | stale`
+
+This table exists only to support safe reconciliation of abandoned `running` jobs.
+
 ## API Changes
 
 ### `POST /jobs`
@@ -181,6 +214,7 @@ Behavior changes:
 
 - validate request
 - persist uploaded brief and initial job metadata
+- write encrypted runtime secret handoff file for this job
 - create durable initial snapshot with `pending` status
 - return `201` immediately
 - do not run the full generation pipeline inline
@@ -234,6 +268,7 @@ Worker must atomically claim one pending job:
 3. write `worker_id`
 4. set `started_at`
 5. append `worker_claimed` event
+6. load and decrypt the job secret handoff file before model execution begins
 
 The claim path must prevent two workers from processing the same job concurrently.
 
@@ -249,15 +284,26 @@ Worker executes the same high-level generation stages as today:
 
 ### Restart Handling
 
-On startup, both API process and worker process should run a reconciliation step:
+Only the worker process performs execution reconciliation.
 
-- find jobs in `pending` or `running`
-- mark them `interrupted`
+On worker startup:
+
+- register a new worker session row
+- find `running` jobs belonging to prior worker sessions that no longer have an active heartbeat
+- mark those stale `running` jobs as `interrupted`
 - set `finished_at`
-- write `error_message` explaining that the process restarted before completion
+- write `error_message` explaining that the worker process restarted before completion
 - append `job_interrupted` event
+- delete any remaining secret handoff file for those interrupted jobs
 
-This matches the approved product behavior: do not auto-resume unfinished work.
+Do not mark `pending` jobs as interrupted on startup.
+Queued jobs should remain runnable after restart.
+
+This preserves the approved product behavior:
+
+- unfinished in-flight work becomes `interrupted`
+- not-yet-started queued work remains `pending`
+- no automatic resume of partially executed jobs
 
 ## Frontend Impact
 
@@ -301,7 +347,8 @@ Additional async validation rules:
 
 - worker exceptions mark job `failed`
 - blocked execution marks job `blocked`
-- process termination before terminal update is reconciled to `interrupted` on next startup
+- process termination before terminal update is reconciled to `interrupted` on next worker startup if the abandoned job was already `running`
+- terminal worker paths must delete the encrypted secret handoff file
 
 ## File Boundaries
 
@@ -313,6 +360,8 @@ Backend likely needs:
   - job create, claim, update, list, reconcile operations
 - `backend/src/idea2thesis/worker.py`
   - independent worker loop entrypoint
+- `backend/src/idea2thesis/secrets.py`
+  - machine-local encryption key and per-job secret handoff helpers
 - `backend/src/idea2thesis/services.py`
   - change `create_job` to durable enqueue semantics
 - `backend/src/idea2thesis/api.py`
@@ -327,9 +376,11 @@ Backend likely needs:
 - `POST /jobs` returns before long-running execution finishes
 - worker claims and completes pending job
 - `GET /jobs/{job_id}` reflects intermediate and terminal state from durable storage
-- unfinished jobs are marked `interrupted` on restart reconciliation
+- stale `running` jobs are marked `interrupted` on worker restart reconciliation
+- `pending` jobs survive restart and are still claimable
 - `GET /jobs` returns filterable durable job list
 - runtime secrets never appear in list or detail responses
+- encrypted secret handoff files are deleted on terminal completion paths
 
 ### Frontend
 
