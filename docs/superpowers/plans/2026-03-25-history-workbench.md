@@ -71,7 +71,7 @@ def test_get_job_detail_includes_rerun_preload_fields(tmp_path: Path) -> None:
     detail = store.get_job("job-1")
     assert detail.runtime_preset["global"]["base_url"] == "https://example.com/v1"
     assert detail.runtime_preset["global"]["model"] == "gpt-test"
-    assert detail.runtime_preset["agents"]["coder"]["use_global"] is False
+    assert detail.runtime_preset["agents"]["coder"]["useGlobal"] is False
     assert detail.runtime_preset["agents"]["coder"]["base_url"] == "https://coder.example.com/v1"
     assert detail.runtime_preset["agents"]["coder"]["model"] == "gpt-coder"
     assert "api_key" not in detail.model_dump_json()
@@ -109,6 +109,11 @@ Implementation requirements:
   - `error_message`
   - `deleted_at`
   - rerun preload fields from `job_runtime_inputs`
+    - global `base_url`
+    - global `model`
+    - per-agent `useGlobal`
+    - per-agent `base_url`
+    - per-agent `model`
 - extend `list_jobs` to support status/query/sort/limit/offset
 - add ordered event retrieval from `job_events`
 - keep all returned rerun preload data non-sensitive
@@ -220,7 +225,7 @@ def test_get_job_detail_returns_rerun_preload_without_secrets(tmp_path: Path) ->
     body = response.json()
     assert body["runtime_preset"]["global"]["base_url"] == "https://example.com/v1"
     assert body["runtime_preset"]["global"]["model"] == "gpt-test"
-    assert body["runtime_preset"]["agents"]["coder"]["use_global"] is False
+    assert body["runtime_preset"]["agents"]["coder"]["useGlobal"] is False
     assert body["runtime_preset"]["agents"]["coder"]["base_url"] == "https://coder.example.com/v1"
     assert body["runtime_preset"]["agents"]["coder"]["model"] == "gpt-coder"
     assert "api_key" not in response.text
