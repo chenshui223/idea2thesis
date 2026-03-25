@@ -15,6 +15,20 @@ function isDocPath(path: string) {
   );
 }
 
+function formatArtifactPath(path: string) {
+  const workspaceIndex = path.indexOf("/workspace/");
+  if (workspaceIndex >= 0) {
+    return path.slice(workspaceIndex + 1);
+  }
+
+  const artifactsIndex = path.indexOf("/artifacts/");
+  if (artifactsIndex >= 0) {
+    return path.slice(artifactsIndex + 1);
+  }
+
+  return path;
+}
+
 export function ArtifactList(props: ArtifactListProps) {
   const systemArtifacts = props.artifacts
     .filter((artifact) => artifact.kind !== "workspace_file")
@@ -40,8 +54,8 @@ export function ArtifactList(props: ArtifactListProps) {
           <h3>{section.title}</h3>
           <ul>
             {section.items.map((artifact) => (
-              <li key={`${artifact.kind}-${artifact.path}`}>
-                <strong>{artifact.kind}</strong>: {artifact.path}
+              <li key={`${artifact.kind}-${artifact.path}`} title={artifact.path}>
+                <strong>{artifact.kind}</strong>: {formatArtifactPath(artifact.path)}
               </li>
             ))}
           </ul>

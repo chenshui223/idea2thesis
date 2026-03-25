@@ -713,20 +713,20 @@ describe("App history workbench", () => {
     expect(
       within(artifactsSection as HTMLElement).getByText((_, element) =>
         element?.tagName.toLowerCase() === "li" &&
-        (element.textContent?.includes("/jobs/job-1/artifacts/final/job_manifest.json") ??
+        (element.textContent?.includes("artifacts/final/job_manifest.json") ??
           false)
       )
     ).toBeInTheDocument();
     expect(
       within(artifactsSection as HTMLElement).getByText((_, element) =>
         element?.tagName.toLowerCase() === "li" &&
-        (element.textContent?.includes("/jobs/job-1/workspace/src/pipeline.py") ?? false)
+        (element.textContent?.includes("workspace/src/pipeline.py") ?? false)
       )
     ).toBeInTheDocument();
     expect(
       within(artifactsSection as HTMLElement).getByText((_, element) =>
         element?.tagName.toLowerCase() === "li" &&
-        (element.textContent?.includes("/jobs/job-1/workspace/docs/答辩提纲.md") ?? false)
+        (element.textContent?.includes("workspace/docs/答辩提纲.md") ?? false)
       )
     ).toBeInTheDocument();
     const generatedCodeSection = within(artifactsSection as HTMLElement)
@@ -740,14 +740,17 @@ describe("App history workbench", () => {
     expect(
       within(generatedCodeSection as HTMLElement).getByText((_, element) =>
         element?.tagName.toLowerCase() === "li" &&
-        (element.textContent?.includes("/jobs/job-1/workspace/src/pipeline.py") ?? false)
+        (element.textContent?.includes("workspace/src/pipeline.py") ?? false)
       )
     ).toBeInTheDocument();
     expect(
       within(generatedDocsSection as HTMLElement).getByText((_, element) =>
         element?.tagName.toLowerCase() === "li" &&
-        (element.textContent?.includes("/jobs/job-1/workspace/docs/答辩提纲.md") ?? false)
+        (element.textContent?.includes("workspace/docs/答辩提纲.md") ?? false)
       )
+    ).toBeInTheDocument();
+    expect(
+      within(generatedCodeSection as HTMLElement).getByTitle("/jobs/job-1/workspace/src/pipeline.py")
     ).toBeInTheDocument();
     expect(screen.getByText(/verification_completed/i)).toBeInTheDocument();
   });
