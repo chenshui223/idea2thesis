@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Callable
 
 from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from docx.oxml.ns import qn
+from docx.shared import Cm, Pt
 
 from idea2thesis.agents import build_agent_tasks
 from idea2thesis.contracts import (
@@ -200,7 +203,26 @@ def _build_thesis_docx(
     conclusion: str,
 ) -> None:
     document = Document()
-    document.add_heading(title, level=0)
+    section = document.sections[0]
+    section.top_margin = Cm(2.54)
+    section.bottom_margin = Cm(2.54)
+    section.left_margin = Cm(3.18)
+    section.right_margin = Cm(3.18)
+
+    normal_style = document.styles["Normal"]
+    normal_font = normal_style.font
+    normal_font.name = "Times New Roman"
+    normal_font.size = Pt(12)
+    normal_style._element.rPr.rFonts.set(qn("w:eastAsia"), "宋体")
+
+    title_paragraph = document.add_paragraph()
+    title_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title_run = title_paragraph.add_run(title)
+    title_run.bold = True
+    title_run.font.name = "Times New Roman"
+    title_run.font.size = Pt(16)
+    title_run._element.rPr.rFonts.set(qn("w:eastAsia"), "黑体")
+
     sections = [
         ("摘要", abstract),
         ("需求分析", requirements_analysis),
@@ -210,11 +232,24 @@ def _build_thesis_docx(
         ("结论", conclusion),
     ]
     for heading, content in sections:
-        document.add_heading(heading, level=1)
+        heading_paragraph = document.add_paragraph()
+        heading_paragraph.paragraph_format.space_before = Pt(12)
+        heading_paragraph.paragraph_format.space_after = Pt(6)
+        heading_run = heading_paragraph.add_run(heading)
+        heading_run.bold = True
+        heading_run.font.name = "Times New Roman"
+        heading_run.font.size = Pt(14)
+        heading_run._element.rPr.rFonts.set(qn("w:eastAsia"), "黑体")
         for paragraph in content.splitlines():
             stripped = paragraph.strip()
             if stripped:
-                document.add_paragraph(stripped)
+                body_paragraph = document.add_paragraph(stripped)
+                body_format = body_paragraph.paragraph_format
+                body_format.first_line_indent = Pt(21)
+                body_format.line_spacing = 1.5
+                body_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
+                body_format.space_before = Pt(0)
+                body_format.space_after = Pt(0)
     document.save(path)
 
 

@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 
 from docx import Document
+from docx.enum.text import WD_LINE_SPACING
+from docx.shared import Pt
 
 from idea2thesis.contracts import ParsedBrief
 from idea2thesis.executor import LocalCommandExecutor
@@ -109,6 +111,15 @@ def test_run_job_persists_real_stage_artifacts_and_manifest(tmp_path: Path) -> N
         paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()
     )
     assert "图书管理系统" in paragraphs
+    title_paragraph = next(
+        paragraph for paragraph in document.paragraphs if paragraph.text.strip() == "图书管理系统 Thesis Draft"
+    )
+    assert title_paragraph.paragraph_format.line_spacing_rule is None
+    body_paragraph = next(
+        paragraph for paragraph in document.paragraphs if paragraph.text.strip().startswith("图书管理系统 面向本地单用户毕业设计场景")
+    )
+    assert body_paragraph.paragraph_format.first_line_indent == Pt(21)
+    assert body_paragraph.paragraph_format.line_spacing == 1.5
     assert artifact_json(paths.artifacts_dir / "final" / "job_manifest.json")["final_disposition"] == "completed"
 
 
