@@ -129,6 +129,24 @@ td {
   margin-bottom: 1.5rem;
 }
 
+.hero-toolbar {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.locale-toggle {
+  padding: 0.55rem 1rem;
+  border: 1px solid rgba(20, 33, 61, 0.12);
+  background: rgba(255, 255, 255, 0.76);
+  color: #154866;
+  box-shadow: none;
+}
+
+.locale-toggle:hover:not(:disabled) {
+  box-shadow: 0 10px 20px rgba(21, 72, 102, 0.08);
+}
+
 .hero-copy h1 {
   margin: 0;
   font-size: clamp(2.5rem, 6vw, 5rem);

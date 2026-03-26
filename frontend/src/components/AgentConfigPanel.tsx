@@ -1,15 +1,5 @@
+import { formatAgentRole, useLocale } from "../i18n";
 import type { AgentRole, AgentSettings } from "../types";
-
-const AGENT_LABELS: Record<AgentRole, string> = {
-  advisor: "Advisor",
-  coder: "Coder",
-  writer: "Writer",
-  requirements_reviewer: "Requirements Reviewer",
-  engineering_reviewer: "Engineering Reviewer",
-  delivery_reviewer: "Delivery Reviewer",
-  code_eval: "Code Eval",
-  doc_check: "Doc Check"
-};
 
 type AgentConfigPanelProps = {
   agents: Record<AgentRole, AgentSettings>;
@@ -20,12 +10,15 @@ type AgentConfigPanelProps = {
 };
 
 export function AgentConfigPanel(props: AgentConfigPanelProps) {
+  const { locale } = useLocale();
+  const isZh = locale === "zh";
+
   return (
     <section>
-      <h2>Agent Overrides</h2>
+      <h2>{isZh ? "Agent 单独覆盖" : "Agent Overrides"}</h2>
       {Object.entries(props.agents).map(([role, settings]) => {
         const typedRole = role as AgentRole;
-        const label = AGENT_LABELS[typedRole];
+        const label = formatAgentRole(locale, typedRole);
         return (
           <fieldset key={role}>
             <legend>{label}</legend>
@@ -39,12 +32,12 @@ export function AgentConfigPanel(props: AgentConfigPanelProps) {
                   })
                 }
               />
-              Use global settings
+              {isZh ? "使用全局设置" : "Use global settings"}
             </label>
             <label>
-              {label} API Key
+              {isZh ? `${label} API Key` : `${label} API Key`}
               <input
-                aria-label={`${label} API Key`}
+                aria-label={isZh ? `${label} API Key` : `${label} API Key`}
                 value={settings.apiKey}
                 disabled={settings.useGlobal}
                 onChange={(event) =>
@@ -55,9 +48,9 @@ export function AgentConfigPanel(props: AgentConfigPanelProps) {
               />
             </label>
             <label>
-              {label} Base URL
+              {isZh ? `${label} Base URL` : `${label} Base URL`}
               <input
-                aria-label={`${label} Base URL`}
+                aria-label={isZh ? `${label} Base URL` : `${label} Base URL`}
                 value={settings.baseUrl}
                 disabled={settings.useGlobal}
                 onChange={(event) =>
@@ -68,9 +61,9 @@ export function AgentConfigPanel(props: AgentConfigPanelProps) {
               />
             </label>
             <label>
-              {label} Model
+              {isZh ? `${label} 模型` : `${label} Model`}
               <input
-                aria-label={`${label} Model`}
+                aria-label={isZh ? `${label} 模型` : `${label} Model`}
                 value={settings.model}
                 disabled={settings.useGlobal}
                 onChange={(event) =>

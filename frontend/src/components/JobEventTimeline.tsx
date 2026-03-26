@@ -1,32 +1,32 @@
+import { formatEventKind, useLocale } from "../i18n";
 import type { JobEvent } from "../types";
 
 type JobEventTimelineProps = {
   events: JobEvent[];
 };
 
-function formatEventLabel(kind: string) {
-  return kind.replaceAll("_", " ");
-}
-
 export function JobEventTimeline(props: JobEventTimelineProps) {
+  const { locale } = useLocale();
+  const isZh = locale === "zh";
   const latestEvent =
     props.events.length > 0 ? props.events[props.events.length - 1] : null;
 
   return (
     <section>
-      <h2>Job Events</h2>
-      <p>Event count: {props.events.length}</p>
+      <h2>{isZh ? "任务事件" : "Job Events"}</h2>
+      <p>{isZh ? `事件数量：${props.events.length}` : `Event count: ${props.events.length}`}</p>
       <p>
-        Latest event: {latestEvent ? formatEventLabel(latestEvent.kind) : "none"}
+        {isZh ? "最新事件：" : "Latest event: "}
+        {latestEvent ? formatEventKind(locale, latestEvent.kind) : isZh ? "无" : "none"}
       </p>
       {props.events.length === 0 ? (
-        <p>No events recorded for this job yet.</p>
+        <p>{isZh ? "当前任务还没有记录任何事件。" : "No events recorded for this job yet."}</p>
       ) : (
         <ul>
           {props.events.map((event) => (
             <li key={event.id}>
               <p>{event.timestamp}</p>
-              <p>{event.kind}</p>
+              <p>{formatEventKind(locale, event.kind)}</p>
               <p>{event.message}</p>
               {Object.entries(event.payload).map(([key, value]) => (
                 <p key={`${event.id}-${key}`}>

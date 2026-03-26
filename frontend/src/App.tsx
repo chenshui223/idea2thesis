@@ -28,6 +28,12 @@ import { SettingsForm } from "./components/SettingsForm";
 import { UploadForm } from "./components/UploadForm";
 import { ValidationReportViewer } from "./components/ValidationReportViewer";
 import {
+  LocaleProvider,
+  persistLocale,
+  readCachedLocale,
+  type Locale
+} from "./i18n";
+import {
   AGENT_ROLES,
   type AgentRole,
   type AgentSettings,
@@ -283,6 +289,7 @@ export default function App() {
   const cachedQuery = readCachedHistoryQuery();
   const cachedSelectedJobId = readCachedSelectedJobId();
 
+  const [locale, setLocale] = useState<Locale>(() => readCachedLocale() ?? "zh");
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(
     initialSettings.global
   );
@@ -503,15 +510,21 @@ export default function App() {
 
   const handleSubmit = async () => {
     if (!selectedFile) {
-      setErrorMessage("Please select a .docx brief first.");
+      setErrorMessage(
+        isZh ? "请先选择一份 .docx 设计书。" : "Please select a .docx brief first."
+      );
       return;
     }
     if (!selectedFile.name.toLowerCase().endsWith(".docx")) {
-      setErrorMessage("Please select a .docx brief first.");
+      setErrorMessage(
+        isZh ? "请先选择一份 .docx 设计书。" : "Please select a .docx brief first."
+      );
       return;
     }
     if (!globalSettings.baseUrl.trim() || !globalSettings.model.trim()) {
-      setErrorMessage("Base URL and Model are required.");
+      setErrorMessage(
+        isZh ? "Base URL 和模型为必填项。" : "Base URL and Model are required."
+      );
       return;
     }
 
@@ -530,7 +543,11 @@ export default function App() {
       return !effectiveApiKey || !effectiveBaseUrl || !effectiveModel;
     });
     if (hasMissingEffectiveConfig) {
-      setErrorMessage("API Key, Base URL, and Model are required for every agent.");
+      setErrorMessage(
+        isZh
+          ? "每个 Agent 都必须具备有效的 API Key、Base URL 和模型。"
+          : "API Key, Base URL, and Model are required for every agent."
+      );
       return;
     }
 
@@ -617,6 +634,12 @@ export default function App() {
 
   const selectedHistoryItem =
     historyItems.find((item) => item.job_id === selectedJobId) ?? null;
+  const isZh = locale === "zh";
+
+  const handleLocaleChange = (nextLocale: Locale) => {
+    setLocale(nextLocale);
+    persistLocale(nextLocale);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -821,186 +844,218 @@ export default function App() {
   };
 
   return (
-    <main className="app-shell">
-      <a href="#generator-workspace" className="skip-link">
-        Skip to generator workspace
-      </a>
-      <header className="hero-panel">
-        <div className="hero-copy">
-          <p className="eyebrow">idea to thesis, locally</p>
-          <h1>idea2thesis</h1>
-          <p className="hero-summary">One-click thesis project generation</p>
-          <p className="hero-detail">
-            Turn a graduation design brief into a runnable repository, generated
-            documentation, and a Word thesis draft with local verification evidence.
-          </p>
-        </div>
-        <div className="hero-highlights" aria-label="product highlights">
-          <p>Local single-user web app</p>
-          <p>OpenAI-compatible API endpoints</p>
-          <p>Global settings plus per-agent overrides</p>
-          <p>Generated `.docx` thesis draft preview</p>
-        </div>
-      </header>
-
-      <section className="setup-grid" id="generator-workspace">
-        <div className="setup-column">
-          <QuickStartPanel selectedFileName={selectedFile?.name ?? ""} />
-          <UploadForm
-            disabled={isSubmitting || isPolling}
-            loading={isSubmitting || isPolling}
-            errorMessage={errorMessage}
-            sampleBriefBusy={sampleBriefBusy}
-            sampleBriefErrorMessage={sampleBriefError}
-            onFileChange={setSelectedFile}
-            onDownloadSampleBrief={() => {
-              void handleDownloadSampleBrief();
-            }}
-            onSubmit={() => {
-              void handleSubmit();
-            }}
-          />
-        </div>
-        <div className="setup-column">
-          <SettingsForm
-            apiKey={globalSettings.apiKey}
-            baseUrl={globalSettings.baseUrl}
-            model={globalSettings.model}
-            thesisCover={globalSettings.thesisCover}
-            onApiKeyChange={(value) =>
-              handleGlobalSettingsChange({ apiKey: value }, false)
-            }
-            onBaseUrlChange={(value) =>
-              handleGlobalSettingsChange({ baseUrl: value }, true)
-            }
-            onModelChange={(value) =>
-              handleGlobalSettingsChange({ model: value }, true)
-            }
-            onThesisCoverChange={(patch) =>
-              handleGlobalSettingsChange(
-                {
-                  thesisCover: {
-                    ...globalSettings.thesisCover,
-                    ...patch
-                  }
-                },
-                true
-              )
-            }
-            onResetThesisCover={() =>
-              handleGlobalSettingsChange(
-                { thesisCover: { ...DEFAULT_THESIS_COVER } },
-                true
-              )
-            }
-          />
-          <section className="advanced-settings-panel">
-            <div className="section-header-row">
-              <div>
-                <p className="eyebrow">advanced runtime control</p>
-                <h2>Agent Overrides</h2>
-              </div>
-              <button
-                type="button"
-                aria-expanded={showAdvancedSettings}
-                onClick={() => setShowAdvancedSettings((value) => !value)}
-              >
-                Advanced Settings
-              </button>
-            </div>
-            <p className="section-summary">
-              Keep the default global configuration for normal use, then open per-agent
-              overrides only when one role needs a different endpoint or model.
+    <LocaleProvider locale={locale} setLocale={handleLocaleChange}>
+      <main className="app-shell">
+        <a href="#generator-workspace" className="skip-link">
+          {isZh ? "跳转到生成工作区" : "Skip to generator workspace"}
+        </a>
+        <header className="hero-panel">
+          <div className="hero-toolbar">
+            <button
+              type="button"
+              className="locale-toggle"
+              onClick={() => handleLocaleChange(locale === "zh" ? "en" : "zh")}
+            >
+              {locale === "zh" ? "EN" : "中文"}
+            </button>
+          </div>
+          <div className="hero-copy">
+            <p className="eyebrow">
+              {isZh ? "本地毕业设计生成" : "idea to thesis, locally"}
             </p>
-            {showAdvancedSettings ? (
-              <AgentConfigPanel
-                agents={agentSettings}
-                onAgentChange={handleAgentSettingsChange}
-              />
-            ) : (
-              <p className="message">
-                All agents are currently using the shared global configuration.
+            <h1>idea2thesis</h1>
+            <p className="hero-summary">
+              {isZh ? "一键生成毕业设计项目" : "One-click thesis project generation"}
+            </p>
+            <p className="hero-detail">
+              {isZh
+                ? "把毕业论文设计书转换为可运行仓库、自动生成文档和 Word 论文初稿，并保留本地校验证据。"
+                : "Turn a graduation design brief into a runnable repository, generated documentation, and a Word thesis draft with local verification evidence."}
+            </p>
+          </div>
+          <div
+            className="hero-highlights"
+            aria-label={isZh ? "产品亮点" : "product highlights"}
+          >
+            <p>{isZh ? "本地单用户 Web 应用" : "Local single-user web app"}</p>
+            <p>{isZh ? "兼容 OpenAI 接口规范" : "OpenAI-compatible API endpoints"}</p>
+            <p>
+              {isZh
+                ? "全局配置 + 每个 Agent 单独覆盖"
+                : "Global settings plus per-agent overrides"}
+            </p>
+            <p>
+              {isZh
+                ? "支持生成 `.docx` 论文初稿预览"
+                : "Generated `.docx` thesis draft preview"}
+            </p>
+          </div>
+        </header>
+
+        <section className="setup-grid" id="generator-workspace">
+          <div className="setup-column">
+            <QuickStartPanel selectedFileName={selectedFile?.name ?? ""} />
+            <UploadForm
+              disabled={isSubmitting || isPolling}
+              loading={isSubmitting || isPolling}
+              errorMessage={errorMessage}
+              sampleBriefBusy={sampleBriefBusy}
+              sampleBriefErrorMessage={sampleBriefError}
+              onFileChange={setSelectedFile}
+              onDownloadSampleBrief={() => {
+                void handleDownloadSampleBrief();
+              }}
+              onSubmit={() => {
+                void handleSubmit();
+              }}
+            />
+          </div>
+          <div className="setup-column">
+            <SettingsForm
+              apiKey={globalSettings.apiKey}
+              baseUrl={globalSettings.baseUrl}
+              model={globalSettings.model}
+              thesisCover={globalSettings.thesisCover}
+              onApiKeyChange={(value) =>
+                handleGlobalSettingsChange({ apiKey: value }, false)
+              }
+              onBaseUrlChange={(value) =>
+                handleGlobalSettingsChange({ baseUrl: value }, true)
+              }
+              onModelChange={(value) =>
+                handleGlobalSettingsChange({ model: value }, true)
+              }
+              onThesisCoverChange={(patch) =>
+                handleGlobalSettingsChange(
+                  {
+                    thesisCover: {
+                      ...globalSettings.thesisCover,
+                      ...patch
+                    }
+                  },
+                  true
+                )
+              }
+              onResetThesisCover={() =>
+                handleGlobalSettingsChange(
+                  { thesisCover: { ...DEFAULT_THESIS_COVER } },
+                  true
+                )
+              }
+            />
+            <section className="advanced-settings-panel">
+              <div className="section-header-row">
+                <div>
+                  <p className="eyebrow">
+                    {isZh ? "高级运行时控制" : "advanced runtime control"}
+                  </p>
+                  <h2>{isZh ? "Agent 单独覆盖" : "Agent Overrides"}</h2>
+                </div>
+                <button
+                  type="button"
+                  aria-expanded={showAdvancedSettings}
+                  onClick={() => setShowAdvancedSettings((value) => !value)}
+                >
+                  {isZh ? "高级设置" : "Advanced Settings"}
+                </button>
+              </div>
+              <p className="section-summary">
+                {isZh
+                  ? "普通使用时建议保持全局统一配置，只有某个 Agent 需要不同端点或模型时再打开单独覆盖。"
+                  : "Keep the default global configuration for normal use, then open per-agent overrides only when one role needs a different endpoint or model."}
               </p>
-            )}
-          </section>
-        </div>
-      </section>
+              {showAdvancedSettings ? (
+                <AgentConfigPanel
+                  agents={agentSettings}
+                  onAgentChange={handleAgentSettingsChange}
+                />
+              ) : (
+                <p className="message">
+                  {isZh
+                    ? "当前所有 Agent 都在使用同一套全局配置。"
+                    : "All agents are currently using the shared global configuration."}
+                </p>
+              )}
+            </section>
+          </div>
+        </section>
 
-      <section className="workspace-panel">
-        <h2>History Workbench</h2>
-        {historyError ? <p>{historyError}</p> : null}
-        {detailError ? <p>{detailError}</p> : null}
-        {eventsError ? <p>{eventsError}</p> : null}
-        {rerunError ? <p>{rerunError}</p> : null}
-        {deleteError ? <p>{deleteError}</p> : null}
-        <div className="history-grid">
-          <HistoryList
-            items={historyItems}
-            total={historyTotal}
-            query={historyQuery}
-            selectedJobId={currentJobId}
-            onSelectJob={(jobId) => {
-              void selectJob(jobId);
-            }}
-            onQueryChange={handleHistoryQueryChange}
+        <section className="workspace-panel">
+          <h2>{isZh ? "历史工作台" : "History Workbench"}</h2>
+          {historyError ? <p>{historyError}</p> : null}
+          {detailError ? <p>{detailError}</p> : null}
+          {eventsError ? <p>{eventsError}</p> : null}
+          {rerunError ? <p>{rerunError}</p> : null}
+          {deleteError ? <p>{deleteError}</p> : null}
+          <div className="history-grid">
+            <HistoryList
+              items={historyItems}
+              total={historyTotal}
+              query={historyQuery}
+              selectedJobId={currentJobId}
+              onSelectJob={(jobId) => {
+                void selectJob(jobId);
+              }}
+              onQueryChange={handleHistoryQueryChange}
+            />
+            <JobDetailPanel
+              job={selectedJob}
+              selectedHistoryItem={selectedHistoryItem}
+              workspaceArchiveBusy={workspaceArchiveBusy}
+              workspaceArchiveError={workspaceArchiveError}
+              onDownloadWorkspaceArchive={() => {
+                void handleDownloadWorkspaceArchive();
+              }}
+              onRerun={() => {
+                void handleRerun();
+              }}
+              onDelete={() => {
+                void handleDelete();
+              }}
+            />
+          </div>
+          <JobEventTimeline events={selectedJobEvents} />
+        </section>
+
+        <section className="monitor-grid">
+          <JobTimeline stage={snapshot.stage} />
+          <AgentBoard agents={snapshot.agents} />
+          <ValidationReportViewer
+            validationState={snapshot.validation_state}
+            disposition={snapshot.final_disposition}
+            artifacts={snapshot.artifacts}
           />
-          <JobDetailPanel
-            job={selectedJob}
-            selectedHistoryItem={selectedHistoryItem}
-            workspaceArchiveBusy={workspaceArchiveBusy}
-            workspaceArchiveError={workspaceArchiveError}
-            onDownloadWorkspaceArchive={() => {
-              void handleDownloadWorkspaceArchive();
-            }}
-            onRerun={() => {
-              void handleRerun();
-            }}
-            onDelete={() => {
-              void handleDelete();
+        </section>
+
+        <section className="artifact-grid">
+          <ArtifactList
+            artifacts={snapshot.artifacts}
+            selectedArtifactPath={selectedArtifactPath}
+            onSelectArtifact={(artifact) => {
+              void handleSelectArtifact(artifact);
             }}
           />
-        </div>
-        <JobEventTimeline events={selectedJobEvents} />
-      </section>
-
-      <section className="monitor-grid">
-        <JobTimeline stage={snapshot.stage} />
-        <AgentBoard agents={snapshot.agents} />
-        <ValidationReportViewer
-          validationState={snapshot.validation_state}
-          disposition={snapshot.final_disposition}
-          artifacts={snapshot.artifacts}
-        />
-      </section>
-
-      <section className="artifact-grid">
-        <ArtifactList
-          artifacts={snapshot.artifacts}
-          selectedArtifactPath={selectedArtifactPath}
-          onSelectArtifact={(artifact) => {
-            void handleSelectArtifact(artifact);
-          }}
-        />
-        <ArtifactPreview
-          title={artifactPreviewTitle}
-          fileName={artifactPreviewFileName}
-          artifactKind={artifactPreviewKind}
-          previewType={artifactPreviewType}
-          content={artifactPreviewContent}
-          truncated={artifactPreviewTruncated}
-          errorMessage={artifactPreviewError}
-          actionErrorMessage={artifactActionError}
-          canActOnArtifact={Boolean(selectedArtifact)}
-          actionBusy={artifactActionBusy}
-          onClear={handleClearArtifactPreview}
-          onDownload={() => {
-            void handleDownloadArtifact();
-          }}
-          onOpenInFolder={() => {
-            void handleOpenArtifactInFolder();
-          }}
-        />
-      </section>
-    </main>
+          <ArtifactPreview
+            title={artifactPreviewTitle}
+            fileName={artifactPreviewFileName}
+            artifactKind={artifactPreviewKind}
+            previewType={artifactPreviewType}
+            content={artifactPreviewContent}
+            truncated={artifactPreviewTruncated}
+            errorMessage={artifactPreviewError}
+            actionErrorMessage={artifactActionError}
+            canActOnArtifact={Boolean(selectedArtifact)}
+            actionBusy={artifactActionBusy}
+            onClear={handleClearArtifactPreview}
+            onDownload={() => {
+              void handleDownloadArtifact();
+            }}
+            onOpenInFolder={() => {
+              void handleOpenArtifactInFolder();
+            }}
+          />
+        </section>
+      </main>
+    </LocaleProvider>
   );
 }

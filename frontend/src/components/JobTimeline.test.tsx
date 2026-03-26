@@ -1,10 +1,19 @@
 import { render, screen } from "@testing-library/react";
 
+import { LocaleProvider } from "../i18n";
 import { JobTimeline } from "./JobTimeline";
+
+function renderWithEnglishLocale(stage: string) {
+  return render(
+    <LocaleProvider locale="en" setLocale={() => {}}>
+      <JobTimeline stage={stage} />
+    </LocaleProvider>
+  );
+}
 
 describe("JobTimeline", () => {
   test("renders user-facing guidance for backend runtime stage keys", () => {
-    render(<JobTimeline stage="verification_running" />);
+    renderWithEnglishLocale("verification_running");
 
     expect(screen.getByText("Current stage: Local Verification")).toBeInTheDocument();
     expect(screen.getByText("Pipeline status: Verifying deliverables")).toBeInTheDocument();
@@ -16,7 +25,7 @@ describe("JobTimeline", () => {
   });
 
   test("maps legacy bare agent stage keys to readable labels", () => {
-    render(<JobTimeline stage="writer" />);
+    renderWithEnglishLocale("writer");
 
     expect(screen.getByText("Current stage: Writer")).toBeInTheDocument();
     expect(screen.getByText("Pipeline status: Writing the thesis draft")).toBeInTheDocument();

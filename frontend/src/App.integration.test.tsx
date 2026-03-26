@@ -47,6 +47,7 @@ function buildDefaultPersistedAgents() {
 describe("App history workbench", () => {
   beforeEach(() => {
     localStorage.clear();
+    localStorage.setItem("idea2thesis.locale", JSON.stringify("en"));
     sessionStorage.clear();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -1239,7 +1240,7 @@ describe("App history workbench", () => {
     expect(
       within(agentSection as HTMLElement).getByText((_, element) =>
         element?.tagName.toLowerCase() === "li" &&
-        (element.textContent?.includes("advisor - Completed: defined delivery scope") ?? false)
+        (element.textContent?.includes("Advisor - Completed: defined delivery scope") ?? false)
       )
     ).toBeInTheDocument();
     const artifactsSection = screen.getByRole("heading", { name: "Artifacts" }).closest("section");
@@ -1360,7 +1361,7 @@ describe("App history workbench", () => {
     expect(screen.getByText("Latest event: verification completed")).toBeInTheDocument();
     expect(screen.getByText("Event count: 2")).toBeInTheDocument();
     expect(screen.getByText("code_eval: pass")).toBeInTheDocument();
-    expect(screen.getByText(/verification_completed/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/verification completed/i).length).toBeGreaterThan(0);
   });
 
   test("agent board shows grouped terminal agent outcomes for the selected job", async () => {
@@ -1444,18 +1445,18 @@ describe("App history workbench", () => {
       within(agentSection as HTMLElement).getByText("Needs repair: 2")
     ).toBeInTheDocument();
     expect(
-      within(agentSection as HTMLElement).getByText("delivery_reviewer")
+      within(agentSection as HTMLElement).getByText("Delivery Reviewer")
     ).toBeInTheDocument();
     expect(
       within(agentSection as HTMLElement).getByText((_, element) =>
         element?.tagName.toLowerCase() === "li" &&
-        (element.textContent?.includes("delivery_reviewer - Needs Repair") ?? false)
+        (element.textContent?.includes("Delivery Reviewer - Needs Repair") ?? false)
       )
     ).toBeInTheDocument();
     expect(
       within(agentSection as HTMLElement).getByText((_, element) =>
         element?.tagName.toLowerCase() === "li" &&
-        (element.textContent?.includes("doc_check - Needs Repair: document checks found issues") ??
+        (element.textContent?.includes("Doc Check - Needs Repair: document checks found issues") ??
           false)
       )
     ).toBeInTheDocument();

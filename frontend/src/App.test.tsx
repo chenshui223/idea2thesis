@@ -1,14 +1,16 @@
+import userEvent from "@testing-library/user-event";
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 
 import App from "./App";
 
 afterEach(() => {
+  window.localStorage.clear();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
-test("renders generator heading without act warnings during startup", async () => {
+function mockStartupFetch() {
   const fetchMock = vi.fn();
   fetchMock.mockResolvedValueOnce(
     new Response(
@@ -42,6 +44,11 @@ test("renders generator heading without act warnings during startup", async () =
     )
   );
   vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+test("renders generator heading in Chinese without act warnings during startup", async () => {
+  const fetchMock = mockStartupFetch();
   const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
   render(<App />);
@@ -52,21 +59,49 @@ test("renders generator heading without act warnings during startup", async () =
   });
 
   expect(screen.getByText("idea2thesis")).toBeInTheDocument();
-  expect(screen.getByText("One-click thesis project generation")).toBeInTheDocument();
-  expect(screen.getByText("Quick Start")).toBeInTheDocument();
-  expect(screen.getByText("API Key is never saved.")).toBeInTheDocument();
-  expect(screen.getByText("Job Timeline")).toBeInTheDocument();
-  expect(screen.getByText("Waiting for your first .docx brief.")).toBeInTheDocument();
-  expect(screen.getByText("Agent Status")).toBeInTheDocument();
-  expect(screen.getByText("Artifacts")).toBeInTheDocument();
-  expect(screen.getByText("Validation Report")).toBeInTheDocument();
+  expect(screen.getByText("一键生成毕业设计项目")).toBeInTheDocument();
+  expect(screen.getByText("快速开始")).toBeInTheDocument();
+  expect(screen.getByText("API Key 不会被保存。")).toBeInTheDocument();
+  expect(screen.getByText("任务时间线")).toBeInTheDocument();
+  expect(screen.getByText("等待你上传第一份 .docx 设计书。")).toBeInTheDocument();
+  expect(screen.getByText("Agent 状态")).toBeInTheDocument();
+  expect(screen.getByText("产物列表")).toBeInTheDocument();
+  expect(screen.getByText("校验报告")).toBeInTheDocument();
   expect(
     screen.getByText(
-      "Recommended action: Keep this page open. The worker will pick up the queued job automatically."
+      "建议操作：保持当前页面开启，后台 worker 会自动拾取排队中的任务。"
     )
   ).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Generate Project" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "生成项目" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "EN" })).toBeInTheDocument();
   expect(consoleErrorSpy).not.toHaveBeenCalledWith(
     expect.stringContaining("not wrapped in act")
   );
+});
+
+test("toggles to English and persists locale preference", async () => {
+  const fetchMock = mockStartupFetch();
+  const user = userEvent.setup();
+  const { unmount } = render(<App />);
+
+  await waitFor(() => {
+    expect(fetchMock).toHaveBeenCalledWith("/settings");
+    expect(fetchMock).toHaveBeenCalledWith("/jobs?sort=updated_desc");
+  });
+
+  await user.click(screen.getByRole("button", { name: "EN" }));
+
+  expect(screen.getByText("One-click thesis project generation")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "中文" })).toBeInTheDocument();
+  expect(window.localStorage.getItem("idea2thesis.locale")).toBe("\"en\"");
+
+  unmount();
+
+  mockStartupFetch();
+  render(<App />);
+
+  await waitFor(() => {
+    expect(screen.getByText("One-click thesis project generation")).toBeInTheDocument();
+  });
+  expect(screen.getByRole("button", { name: "中文" })).toBeInTheDocument();
 });

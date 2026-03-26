@@ -1,3 +1,4 @@
+import { useLocale } from "../i18n";
 import type { ArtifactRef } from "../types";
 
 type ArtifactListProps = {
@@ -32,6 +33,8 @@ function formatArtifactPath(path: string) {
 }
 
 export function ArtifactList(props: ArtifactListProps) {
+  const { locale } = useLocale();
+  const isZh = locale === "zh";
   const generatedCode = props.artifacts
     .filter((artifact) => artifact.kind === "workspace_file" && !isDocPath(artifact.path))
     .sort((left, right) => left.path.localeCompare(right.path));
@@ -47,14 +50,14 @@ export function ArtifactList(props: ArtifactListProps) {
     .sort((left, right) => left.path.localeCompare(right.path));
 
   const sections = [
-    { title: "System Artifacts", items: systemArtifacts },
-    { title: "Generated Code", items: generatedCode },
-    { title: "Generated Docs", items: generatedDocs }
+    { title: isZh ? "系统产物" : "System Artifacts", items: systemArtifacts },
+    { title: isZh ? "生成代码" : "Generated Code", items: generatedCode },
+    { title: isZh ? "生成文档" : "Generated Docs", items: generatedDocs }
   ].filter((section) => section.items.length > 0);
 
   return (
     <section>
-      <h2>Artifacts</h2>
+      <h2>{isZh ? "产物列表" : "Artifacts"}</h2>
       {sections.map((section) => (
         <section key={section.title}>
           <h3>{section.title}</h3>
