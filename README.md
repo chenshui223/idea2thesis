@@ -125,6 +125,29 @@ In the current frontend:
 - a separate local worker process claims and executes the job
 - the dashboard then polls `GET /jobs/{job_id}` until the job reaches a terminal result
 
+## Execution Pipeline
+
+Each accepted brief runs through a fixed local multi-agent execution chain:
+
+- `advisor` analyzes the brief and writes the delivery plan
+- `coder` generates the runnable scaffold and implementation notes
+- `writer` generates repository docs, a thesis draft markdown file, and a thesis draft `.docx`
+- `requirements_reviewer`, `engineering_reviewer`, and `delivery_reviewer` evaluate delivery readiness
+- `code_eval` runs a local verification command inside the generated workspace
+- `doc_check` checks required thesis sections and basic scope consistency
+
+The current execution model is single-pass and deterministic:
+
+- there is no automatic multi-round repair loop yet
+- the final job manifest records `repair_performed: false`
+- blocked outputs are kept for manual inspection and rerun
+
+Terminal outcomes mean:
+
+- `completed`: verification and document checks both passed
+- `failed`: local code verification failed
+- `blocked`: deliverables were generated, but reviewer or document checks require manual repair
+
 ## History Workbench
 
 The web app now includes a persistent history workbench:
@@ -133,6 +156,8 @@ The web app now includes a persistent history workbench:
 - all jobs remain visible by default, including `deleted`
 - selecting a row loads durable job detail plus the ordered event timeline
 - only the currently selected active job is polled
+- polling refreshes the selected job detail, event timeline, and left-side history summary together
+- the detail view surfaces agent summaries, artifact lists, validation state, and repair guidance
 - completed or retained jobs can export the generated `workspace/` as a ZIP from the detail panel
 - when there are no jobs yet, the history panel shows first-run guidance with the recommended startup steps
 
@@ -168,6 +193,33 @@ The ZIP intentionally excludes internal runtime directories such as:
 - `workspace/.git/`
 - `workspace/.idea2thesis-logs/`
 
+## Artifact Layout
+
+Each job writes durable artifacts under `jobs/<job-id>/artifacts/`:
+
+- `agent/advisor/advisor_plan.json`
+- `agent/coder/implementation_plan.md`
+- `agent/coder/code_summary.json`
+- `agent/writer/thesis_draft.md`
+- `agent/writer/thesis_draft.docx`
+- `agent/writer/design_report.md`
+- `agent/review/requirements_review.json`
+- `agent/review/engineering_review.json`
+- `agent/review/delivery_review.json`
+- `verification/code_eval.json`
+- `verification/doc_check.json`
+- `final/job_manifest.json`
+
+The generated repository workspace stays under `jobs/<job-id>/workspace/`, while uploaded inputs and parsed brief snapshots remain under `input/` and `parsed/`.
+
 ## Verification Evidence
 
 Repository verification evidence is stored under `artifacts/verification/`.
+
+The final job manifest under `artifacts/final/job_manifest.json` summarizes:
+
+- final disposition
+- stage-by-stage agent results
+- durable artifact paths used by the history workbench
+
+Runtime API keys are not written into persisted runtime settings, durable artifacts, or the final manifest.
