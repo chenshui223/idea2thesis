@@ -118,7 +118,10 @@ export function HistoryList(props: HistoryListProps) {
               aria-selected={props.selectedJobId === item.job_id}
               onClick={() => props.onSelectJob(item.job_id)}
             >
-              <td>{item.brief_title}</td>
+              <td>
+                <div>{item.brief_title}</div>
+                <div>{item.job_id}</div>
+              </td>
               <td>
                 <strong>{item.status}</strong>
                 <div>{describeHistorySignal(item.status)}</div>
