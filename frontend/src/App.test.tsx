@@ -56,9 +56,15 @@ test("renders generator heading without act warnings during startup", async () =
   expect(screen.getByText("Quick Start")).toBeInTheDocument();
   expect(screen.getByText("API Key is never saved.")).toBeInTheDocument();
   expect(screen.getByText("Job Timeline")).toBeInTheDocument();
+  expect(screen.getByText("Waiting for your first .docx brief.")).toBeInTheDocument();
   expect(screen.getByText("Agent Status")).toBeInTheDocument();
   expect(screen.getByText("Artifacts")).toBeInTheDocument();
   expect(screen.getByText("Validation Report")).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      "Recommended action: Keep this page open. The worker will pick up the queued job automatically."
+    )
+  ).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Generate Project" })).toBeInTheDocument();
   expect(consoleErrorSpy).not.toHaveBeenCalledWith(
     expect.stringContaining("not wrapped in act")
