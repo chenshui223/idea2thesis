@@ -1126,6 +1126,9 @@ describe("App history workbench", () => {
     expect(await screen.findByText("File: 答辩提纲.md")).toBeInTheDocument();
     expect(screen.getByText("Preview status: error")).toBeInTheDocument();
     expect(screen.getByText("failed to fetch artifact content")).toBeInTheDocument();
+    expect(screen.getByText("Latest event: verification completed")).toBeInTheDocument();
+    expect(screen.getByText("Event count: 2")).toBeInTheDocument();
+    expect(screen.getByText("code_eval: pass")).toBeInTheDocument();
     expect(screen.getByText(/verification_completed/i)).toBeInTheDocument();
   });
 
