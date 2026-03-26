@@ -650,6 +650,7 @@ describe("App history workbench", () => {
           {
             job_id: "job-2",
             title: "Beta analysis",
+            source_job_id: "job-1",
             status: "running",
             stage: "drafting",
             final_disposition: "pending",
@@ -703,6 +704,7 @@ describe("App history workbench", () => {
     expect(within(historyTable).getByText("job-1")).toBeInTheDocument();
     expect(within(historyTable).getByText("job-2")).toBeInTheDocument();
     expect(within(historyTable).getByText("job-3")).toBeInTheDocument();
+    expect(within(historyTable).getByText("Rerun from job-1")).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText("Search jobs"), "beta");
     historyTable = screen.getByRole("table");
@@ -712,6 +714,7 @@ describe("App history workbench", () => {
     expect(screen.getByText("Active jobs: 1")).toBeInTheDocument();
     expect(screen.getByText("Needs repair: 0")).toBeInTheDocument();
     expect(within(historyTable).getByText("job-2")).toBeInTheDocument();
+    expect(within(historyTable).getByText("Rerun from job-1")).toBeInTheDocument();
     expect(within(historyTable).queryByText("job-1")).not.toBeInTheDocument();
 
     await userEvent.selectOptions(screen.getByLabelText("Status filter"), "running");

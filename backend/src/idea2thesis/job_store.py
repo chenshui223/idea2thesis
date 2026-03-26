@@ -375,7 +375,7 @@ class JobStore:
             ).fetchone()[0]
             rows = connection.execute(
                 f"""
-                SELECT id, brief_title, status, stage, updated_at, created_at, final_disposition
+                SELECT id, brief_title, status, stage, updated_at, created_at, final_disposition, source_job_id
                 FROM jobs
                 {where_clause}
                 ORDER BY {order_clause}
@@ -388,6 +388,7 @@ class JobStore:
                 schema_version="v1alpha1",
                 job_id=str(row[0]),
                 brief_title=str(row[1]),
+                source_job_id=str(row[7]) if row[7] is not None else None,
                 status=_normalize_list_status(str(row[2])),
                 stage=str(row[3]),
                 updated_at=str(row[4]),

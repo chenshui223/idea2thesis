@@ -103,6 +103,7 @@ export type SettingsResponse = PersistedSettings & {
 export type HistoryListItem = {
   job_id: string;
   brief_title: string;
+  source_job_id: string | null;
   status: string;
   stage: string;
   final_disposition: string;

@@ -230,11 +230,13 @@ def test_list_jobs_filters_search_sorts_and_paginates(tmp_path: Path) -> None:
         stage="running",
         created_at="2026-03-25T08:00:00Z",
         updated_at="2026-03-25T08:05:00Z",
+        source_job_id="job-0",
     )
 
     result = store.list_jobs(query="系统", sort="created_asc", limit=2, offset=0)
     assert [item.job_id for item in result.items] == ["job-3", "job-1"]
     assert result.total == 3
+    assert result.items[0].source_job_id == "job-0"
 
     deleted_only = store.list_jobs(status="deleted")
     assert [item.job_id for item in deleted_only.items] == ["job-2"]

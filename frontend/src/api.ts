@@ -67,6 +67,7 @@ function normalizeHistoryItem(item: any): HistoryListItem {
   return {
     job_id: item.job_id,
     brief_title: item.brief_title ?? item.title ?? "",
+    source_job_id: item.source_job_id ?? null,
     status: item.status ?? "pending",
     stage: item.stage ?? "",
     final_disposition: item.final_disposition ?? item.status ?? "pending",

@@ -260,6 +260,7 @@ class ArtifactRef(BaseModel):
 class JobListItem(VersionedModel):
     job_id: str
     brief_title: str
+    source_job_id: str | None = None
     status: Literal[
         "pending",
         "running",

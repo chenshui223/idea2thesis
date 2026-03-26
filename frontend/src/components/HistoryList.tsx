@@ -121,6 +121,7 @@ export function HistoryList(props: HistoryListProps) {
               <td>
                 <div>{item.brief_title}</div>
                 <div>{item.job_id}</div>
+                {item.source_job_id ? <div>Rerun from {item.source_job_id}</div> : null}
               </td>
               <td>
                 <strong>{item.status}</strong>
