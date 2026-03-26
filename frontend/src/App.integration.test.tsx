@@ -913,6 +913,15 @@ describe("App history workbench", () => {
 
     await user.click(screen.getByRole("row", { name: /Second job/ }));
     await waitFor(() => expect(screen.getByText("Current job: job-2")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+    expect(
+      screen.getByText("Delete becomes available after the job reaches a terminal status.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Rerun reuses the same brief and non-sensitive runtime settings. Enter fresh API keys before starting."
+      )
+    ).toBeInTheDocument();
 
     await waitFor(() =>
       expect(

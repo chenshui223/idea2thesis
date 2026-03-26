@@ -53,6 +53,7 @@ export function JobDetailPanel(props: JobDetailPanelProps) {
     job &&
     ["completed", "failed", "blocked", "interrupted"].includes(job.status);
   const repairGuidance = job ? buildRepairGuidance(job) : null;
+  const showDeleteHint = Boolean(job) && !canDelete;
 
   return (
     <section>
@@ -99,6 +100,15 @@ export function JobDetailPanel(props: JobDetailPanelProps) {
           <button type="button" onClick={props.onDelete} disabled={!canDelete}>
             Delete
           </button>
+          <section aria-label="job-actions-guidance">
+            {showDeleteHint ? (
+              <p>Delete becomes available after the job reaches a terminal status.</p>
+            ) : null}
+            <p>
+              Rerun reuses the same brief and non-sensitive runtime settings. Enter
+              fresh API keys before starting.
+            </p>
+          </section>
         </>
       ) : (
         <p>No job selected.</p>
