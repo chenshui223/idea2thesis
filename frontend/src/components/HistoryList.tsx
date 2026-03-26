@@ -12,6 +12,19 @@ type HistoryListProps = {
 const STATUS_OPTIONS = ["all", "pending", "running", "completed", "failed", "blocked", "deleted"];
 const SORT_OPTIONS = ["updated_desc", "created_desc", "created_asc"];
 
+function describeHistorySignal(status: string) {
+  if (status === "completed") {
+    return "Ready";
+  }
+  if (status === "failed" || status === "blocked") {
+    return "Repair Needed";
+  }
+  if (status === "deleted") {
+    return "Archived";
+  }
+  return "In Progress";
+}
+
 export function HistoryList(props: HistoryListProps) {
   const filteredItems = props.items.filter((item) => {
     const matchesSearch = props.query.search
@@ -106,7 +119,10 @@ export function HistoryList(props: HistoryListProps) {
               onClick={() => props.onSelectJob(item.job_id)}
             >
               <td>{item.brief_title}</td>
-              <td>{item.status}</td>
+              <td>
+                <strong>{item.status}</strong>
+                <div>{describeHistorySignal(item.status)}</div>
+              </td>
               <td>{item.stage}</td>
               <td>{item.updated_at}</td>
             </tr>

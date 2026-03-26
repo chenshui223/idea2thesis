@@ -696,6 +696,9 @@ describe("App history workbench", () => {
     expect(screen.getByText("Active jobs: 1")).toBeInTheDocument();
     expect(screen.getByText("Needs repair: 1")).toBeInTheDocument();
     expect(screen.getByText("Deleted jobs: 0")).toBeInTheDocument();
+    expect(screen.getByText("Ready")).toBeInTheDocument();
+    expect(screen.getByText("In Progress")).toBeInTheDocument();
+    expect(screen.getByText("Repair Needed")).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText("Search jobs"), "beta");
     let historyTable = screen.getByRole("table");
