@@ -65,6 +65,10 @@ export function JobDetailPanel(props: JobDetailPanelProps) {
           <p>Stage: {job.stage}</p>
           <p>Final disposition: {job.final_disposition}</p>
           <p>Validation state: {job.validation_state}</p>
+          <p>Created at: {job.created_at}</p>
+          <p>Updated at: {job.updated_at}</p>
+          {job.started_at ? <p>Started at: {job.started_at}</p> : null}
+          {job.finished_at ? <p>Finished at: {job.finished_at}</p> : null}
           {repairGuidance ? (
             <section aria-label="repair-guidance">
               <h3>Recommended Next Steps</h3>

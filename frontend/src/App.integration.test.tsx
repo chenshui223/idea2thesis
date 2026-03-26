@@ -928,7 +928,7 @@ describe("App history workbench", () => {
         schema_version: "v1alpha1",
         job_id: "job-1",
         brief_title: "Thesis Job",
-        source_job_id: null,
+        source_job_id: "job-0",
         status: "completed",
         stage: "completed",
         final_disposition: "completed",
@@ -939,6 +939,8 @@ describe("App history workbench", () => {
         deleted_at: null,
         created_at: "2026-03-25T00:00:00Z",
         updated_at: "2026-03-25T00:02:00Z",
+        started_at: "2026-03-25T00:00:05Z",
+        finished_at: "2026-03-25T00:01:30Z",
         agents: [
           { role: "advisor", status: "done", summary: "defined delivery scope" },
           { role: "code_eval", status: "done", summary: "local verification command executed" }
@@ -998,6 +1000,14 @@ describe("App history workbench", () => {
     render(<App />);
 
     expect(await screen.findByText("Current job: job-1")).toBeInTheDocument();
+    expect(screen.getByText("Source job: job-0")).toBeInTheDocument();
+    expect(screen.getByText("Created at: 2026-03-25T00:00:00Z")).toBeInTheDocument();
+    expect(screen.getByText("Updated at: 2026-03-25T00:02:00Z")).toBeInTheDocument();
+    expect(screen.getByText("Started at: 2026-03-25T00:00:05Z")).toBeInTheDocument();
+    expect(screen.getByText("Finished at: 2026-03-25T00:01:30Z")).toBeInTheDocument();
+    expect(
+      screen.getByText("Validation summary: Validation completed and the deliverable is ready.")
+    ).toBeInTheDocument();
     expect(screen.getByText("Preview status: idle")).toBeInTheDocument();
     expect(screen.getByText("Select an artifact to preview.")).toBeInTheDocument();
     expect(screen.getByText(/advisor: defined delivery scope/i)).toBeInTheDocument();
@@ -1537,6 +1547,9 @@ describe("App history workbench", () => {
       screen.getByText(
         "Reported issue: delivery reviewer marked thesis draft as incomplete"
       )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Validation summary: Validation is blocked and manual repair is required.")
     ).toBeInTheDocument();
   });
 
