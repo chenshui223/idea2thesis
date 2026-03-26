@@ -11,9 +11,12 @@ type UploadFormProps = {
 
 export function UploadForm(props: UploadFormProps) {
   return (
-    <section>
+    <section className="upload-panel">
       <h2>Brief Upload</h2>
-      <label>
+      <p className="section-summary">
+        Start with the sample brief for a known-good path, or upload a real thesis design brief in Word format.
+      </p>
+      <label className="field">
         Design Brief (.docx)
         <input
           aria-label="Design Brief (.docx)"
@@ -23,18 +26,22 @@ export function UploadForm(props: UploadFormProps) {
           onChange={(event) => props.onFileChange(event.target.files?.[0] ?? null)}
         />
       </label>
-      <button type="button" disabled={props.disabled} onClick={props.onSubmit}>
-        {props.loading ? "Generating..." : "Generate Project"}
-      </button>
-      <button
-        type="button"
-        disabled={props.sampleBriefBusy}
-        onClick={props.onDownloadSampleBrief}
-      >
-        {props.sampleBriefBusy ? "Preparing Sample Brief..." : "Download Sample Brief"}
-      </button>
-      {props.errorMessage ? <p>{props.errorMessage}</p> : null}
-      {props.sampleBriefErrorMessage ? <p>{props.sampleBriefErrorMessage}</p> : null}
+      <div className="button-row">
+        <button type="button" disabled={props.disabled} onClick={props.onSubmit}>
+          {props.loading ? "Generating..." : "Generate Project"}
+        </button>
+        <button
+          type="button"
+          disabled={props.sampleBriefBusy}
+          onClick={props.onDownloadSampleBrief}
+        >
+          {props.sampleBriefBusy ? "Preparing Sample Brief..." : "Download Sample Brief"}
+        </button>
+      </div>
+      {props.errorMessage ? <p className="message error">{props.errorMessage}</p> : null}
+      {props.sampleBriefErrorMessage ? (
+        <p className="message error">{props.sampleBriefErrorMessage}</p>
+      ) : null}
     </section>
   );
 }

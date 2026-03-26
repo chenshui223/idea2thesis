@@ -53,6 +53,8 @@ test("renders generator heading without act warnings during startup", async () =
 
   expect(screen.getByText("idea2thesis")).toBeInTheDocument();
   expect(screen.getByText("One-click thesis project generation")).toBeInTheDocument();
+  expect(screen.getByText("Quick Start")).toBeInTheDocument();
+  expect(screen.getByText("API Key is never saved.")).toBeInTheDocument();
   expect(screen.getByText("Job Timeline")).toBeInTheDocument();
   expect(screen.getByText("Agent Status")).toBeInTheDocument();
   expect(screen.getByText("Artifacts")).toBeInTheDocument();

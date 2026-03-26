@@ -23,6 +23,7 @@ import { HistoryList } from "./components/HistoryList";
 import { JobDetailPanel } from "./components/JobDetailPanel";
 import { JobEventTimeline } from "./components/JobEventTimeline";
 import { JobTimeline } from "./components/JobTimeline";
+import { QuickStartPanel } from "./components/QuickStartPanel";
 import { SettingsForm } from "./components/SettingsForm";
 import { UploadForm } from "./components/UploadForm";
 import { ValidationReportViewer } from "./components/ValidationReportViewer";
@@ -820,76 +821,119 @@ export default function App() {
   };
 
   return (
-    <main>
-      <h1>idea2thesis</h1>
-      <p>One-click thesis project generation</p>
-      <SettingsForm
-        apiKey={globalSettings.apiKey}
-        baseUrl={globalSettings.baseUrl}
-        model={globalSettings.model}
-        thesisCover={globalSettings.thesisCover}
-        onApiKeyChange={(value) =>
-          handleGlobalSettingsChange({ apiKey: value }, false)
-        }
-        onBaseUrlChange={(value) =>
-          handleGlobalSettingsChange({ baseUrl: value }, true)
-        }
-        onModelChange={(value) =>
-          handleGlobalSettingsChange({ model: value }, true)
-        }
-        onThesisCoverChange={(patch) =>
-          handleGlobalSettingsChange(
-            {
-              thesisCover: {
-                ...globalSettings.thesisCover,
-                ...patch
-              }
-            },
-            true
-          )
-        }
-        onResetThesisCover={() =>
-          handleGlobalSettingsChange(
-            { thesisCover: { ...DEFAULT_THESIS_COVER } },
-            true
-          )
-        }
-      />
-      <button
-        type="button"
-        aria-expanded={showAdvancedSettings}
-        onClick={() => setShowAdvancedSettings((value) => !value)}
-      >
-        Advanced Settings
-      </button>
-      {showAdvancedSettings ? (
-        <AgentConfigPanel
-          agents={agentSettings}
-          onAgentChange={handleAgentSettingsChange}
-        />
-      ) : null}
-      <UploadForm
-        disabled={isSubmitting || isPolling}
-        loading={isSubmitting || isPolling}
-        errorMessage={errorMessage}
-        sampleBriefBusy={sampleBriefBusy}
-        sampleBriefErrorMessage={sampleBriefError}
-        onFileChange={setSelectedFile}
-        onDownloadSampleBrief={() => {
-          void handleDownloadSampleBrief();
-        }}
-        onSubmit={() => {
-          void handleSubmit();
-        }}
-      />
-      <section>
+    <main className="app-shell">
+      <a href="#generator-workspace" className="skip-link">
+        Skip to generator workspace
+      </a>
+      <header className="hero-panel">
+        <div className="hero-copy">
+          <p className="eyebrow">idea to thesis, locally</p>
+          <h1>idea2thesis</h1>
+          <p className="hero-summary">One-click thesis project generation</p>
+          <p className="hero-detail">
+            Turn a graduation design brief into a runnable repository, generated
+            documentation, and a Word thesis draft with local verification evidence.
+          </p>
+        </div>
+        <div className="hero-highlights" aria-label="product highlights">
+          <p>Local single-user web app</p>
+          <p>OpenAI-compatible API endpoints</p>
+          <p>Global settings plus per-agent overrides</p>
+          <p>Generated `.docx` thesis draft preview</p>
+        </div>
+      </header>
+
+      <section className="setup-grid" id="generator-workspace">
+        <div className="setup-column">
+          <QuickStartPanel selectedFileName={selectedFile?.name ?? ""} />
+          <UploadForm
+            disabled={isSubmitting || isPolling}
+            loading={isSubmitting || isPolling}
+            errorMessage={errorMessage}
+            sampleBriefBusy={sampleBriefBusy}
+            sampleBriefErrorMessage={sampleBriefError}
+            onFileChange={setSelectedFile}
+            onDownloadSampleBrief={() => {
+              void handleDownloadSampleBrief();
+            }}
+            onSubmit={() => {
+              void handleSubmit();
+            }}
+          />
+        </div>
+        <div className="setup-column">
+          <SettingsForm
+            apiKey={globalSettings.apiKey}
+            baseUrl={globalSettings.baseUrl}
+            model={globalSettings.model}
+            thesisCover={globalSettings.thesisCover}
+            onApiKeyChange={(value) =>
+              handleGlobalSettingsChange({ apiKey: value }, false)
+            }
+            onBaseUrlChange={(value) =>
+              handleGlobalSettingsChange({ baseUrl: value }, true)
+            }
+            onModelChange={(value) =>
+              handleGlobalSettingsChange({ model: value }, true)
+            }
+            onThesisCoverChange={(patch) =>
+              handleGlobalSettingsChange(
+                {
+                  thesisCover: {
+                    ...globalSettings.thesisCover,
+                    ...patch
+                  }
+                },
+                true
+              )
+            }
+            onResetThesisCover={() =>
+              handleGlobalSettingsChange(
+                { thesisCover: { ...DEFAULT_THESIS_COVER } },
+                true
+              )
+            }
+          />
+          <section className="advanced-settings-panel">
+            <div className="section-header-row">
+              <div>
+                <p className="eyebrow">advanced runtime control</p>
+                <h2>Agent Overrides</h2>
+              </div>
+              <button
+                type="button"
+                aria-expanded={showAdvancedSettings}
+                onClick={() => setShowAdvancedSettings((value) => !value)}
+              >
+                Advanced Settings
+              </button>
+            </div>
+            <p className="section-summary">
+              Keep the default global configuration for normal use, then open per-agent
+              overrides only when one role needs a different endpoint or model.
+            </p>
+            {showAdvancedSettings ? (
+              <AgentConfigPanel
+                agents={agentSettings}
+                onAgentChange={handleAgentSettingsChange}
+              />
+            ) : (
+              <p className="message">
+                All agents are currently using the shared global configuration.
+              </p>
+            )}
+          </section>
+        </div>
+      </section>
+
+      <section className="workspace-panel">
         <h2>History Workbench</h2>
         {historyError ? <p>{historyError}</p> : null}
         {detailError ? <p>{detailError}</p> : null}
         {eventsError ? <p>{eventsError}</p> : null}
         {rerunError ? <p>{rerunError}</p> : null}
         {deleteError ? <p>{deleteError}</p> : null}
-        <div>
+        <div className="history-grid">
           <HistoryList
             items={historyItems}
             total={historyTotal}
@@ -918,38 +962,44 @@ export default function App() {
         </div>
         <JobEventTimeline events={selectedJobEvents} />
       </section>
-      <JobTimeline stage={snapshot.stage} />
-      <AgentBoard agents={snapshot.agents} />
-      <ArtifactList
-        artifacts={snapshot.artifacts}
-        selectedArtifactPath={selectedArtifactPath}
-        onSelectArtifact={(artifact) => {
-          void handleSelectArtifact(artifact);
-        }}
-      />
-      <ArtifactPreview
-        title={artifactPreviewTitle}
-        fileName={artifactPreviewFileName}
-        artifactKind={artifactPreviewKind}
-        previewType={artifactPreviewType}
-        content={artifactPreviewContent}
-        truncated={artifactPreviewTruncated}
-        errorMessage={artifactPreviewError}
-        actionErrorMessage={artifactActionError}
-        canActOnArtifact={Boolean(selectedArtifact)}
-        actionBusy={artifactActionBusy}
-        onClear={handleClearArtifactPreview}
-        onDownload={() => {
-          void handleDownloadArtifact();
-        }}
-        onOpenInFolder={() => {
-          void handleOpenArtifactInFolder();
-        }}
-      />
-      <ValidationReportViewer
-        validationState={snapshot.validation_state}
-        disposition={snapshot.final_disposition}
-      />
+
+      <section className="monitor-grid">
+        <JobTimeline stage={snapshot.stage} />
+        <AgentBoard agents={snapshot.agents} />
+        <ValidationReportViewer
+          validationState={snapshot.validation_state}
+          disposition={snapshot.final_disposition}
+        />
+      </section>
+
+      <section className="artifact-grid">
+        <ArtifactList
+          artifacts={snapshot.artifacts}
+          selectedArtifactPath={selectedArtifactPath}
+          onSelectArtifact={(artifact) => {
+            void handleSelectArtifact(artifact);
+          }}
+        />
+        <ArtifactPreview
+          title={artifactPreviewTitle}
+          fileName={artifactPreviewFileName}
+          artifactKind={artifactPreviewKind}
+          previewType={artifactPreviewType}
+          content={artifactPreviewContent}
+          truncated={artifactPreviewTruncated}
+          errorMessage={artifactPreviewError}
+          actionErrorMessage={artifactActionError}
+          canActOnArtifact={Boolean(selectedArtifact)}
+          actionBusy={artifactActionBusy}
+          onClear={handleClearArtifactPreview}
+          onDownload={() => {
+            void handleDownloadArtifact();
+          }}
+          onOpenInFolder={() => {
+            void handleOpenArtifactInFolder();
+          }}
+        />
+      </section>
     </main>
   );
 }

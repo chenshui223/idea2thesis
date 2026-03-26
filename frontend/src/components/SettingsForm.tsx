@@ -21,9 +21,12 @@ type SettingsFormProps = {
 
 export function SettingsForm(props: SettingsFormProps) {
   return (
-    <section>
+    <section className="settings-panel">
       <h2>Model Settings</h2>
-      <label>
+      <p className="section-summary">
+        Use one shared endpoint for the full pipeline, then override individual agents only when needed.
+      </p>
+      <label className="field">
         API Key
         <input
           aria-label="API Key"
@@ -32,7 +35,7 @@ export function SettingsForm(props: SettingsFormProps) {
           onChange={(event) => props.onApiKeyChange(event.target.value)}
         />
       </label>
-      <label>
+      <label className="field">
         Base URL
         <input
           aria-label="Base URL"
@@ -40,7 +43,7 @@ export function SettingsForm(props: SettingsFormProps) {
           onChange={(event) => props.onBaseUrlChange(event.target.value)}
         />
       </label>
-      <label>
+      <label className="field">
         Model
         <input
           aria-label="Model"
@@ -48,12 +51,15 @@ export function SettingsForm(props: SettingsFormProps) {
           onChange={(event) => props.onModelChange(event.target.value)}
         />
       </label>
-      <section aria-labelledby="thesis-cover-heading">
-        <h3 id="thesis-cover-heading">Thesis Cover</h3>
-        <button type="button" onClick={props.onResetThesisCover}>
-          Reset Thesis Cover
-        </button>
-        <label>
+      <section aria-labelledby="thesis-cover-heading" className="thesis-cover-panel">
+        <div className="section-header-row">
+          <h3 id="thesis-cover-heading">Thesis Cover</h3>
+          <button type="button" onClick={props.onResetThesisCover}>
+            Reset Thesis Cover
+          </button>
+        </div>
+        <div className="cover-grid">
+        <label className="field">
           School
           <input
             aria-label="School"
@@ -63,7 +69,7 @@ export function SettingsForm(props: SettingsFormProps) {
             }
           />
         </label>
-        <label>
+        <label className="field">
           Department
           <input
             aria-label="Department"
@@ -73,7 +79,7 @@ export function SettingsForm(props: SettingsFormProps) {
             }
           />
         </label>
-        <label>
+        <label className="field">
           Major
           <input
             aria-label="Major"
@@ -83,7 +89,7 @@ export function SettingsForm(props: SettingsFormProps) {
             }
           />
         </label>
-        <label>
+        <label className="field">
           Student Name
           <input
             aria-label="Student Name"
@@ -93,7 +99,7 @@ export function SettingsForm(props: SettingsFormProps) {
             }
           />
         </label>
-        <label>
+        <label className="field">
           Student ID
           <input
             aria-label="Student ID"
@@ -103,7 +109,7 @@ export function SettingsForm(props: SettingsFormProps) {
             }
           />
         </label>
-        <label>
+        <label className="field">
           Advisor
           <input
             aria-label="Advisor"
@@ -113,6 +119,7 @@ export function SettingsForm(props: SettingsFormProps) {
             }
           />
         </label>
+        </div>
       </section>
     </section>
   );
