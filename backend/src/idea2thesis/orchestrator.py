@@ -851,6 +851,7 @@ class SupervisorOrchestrator:
                 "implementation_plan": str(artifact_paths.implementation_plan),
                 "code_summary": str(artifact_paths.code_summary),
                 "thesis_draft": str(artifact_paths.thesis_draft),
+                "thesis_draft_docx": str(artifact_paths.thesis_draft_docx),
                 "design_report": str(artifact_paths.design_report),
                 "requirements_review": str(artifact_paths.requirements_review),
                 "engineering_review": str(artifact_paths.engineering_review),

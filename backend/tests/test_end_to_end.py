@@ -472,6 +472,13 @@ def test_worker_execution_persists_real_artifacts_and_events(tmp_path: Path) -> 
     manifest_text = manifest_path.read_text(encoding="utf-8")
     assert '"final_disposition": "completed"' in manifest_text
     assert "runtime-key" not in manifest_text
+    assert "thesis_draft_docx" in manifest_text
+
+    thesis_docx_path = (
+        tmp_path / "jobs" / job_id / "artifacts" / "agent" / "writer" / "thesis_draft.docx"
+    )
+    assert thesis_docx_path.exists()
+    assert "runtime-key".encode("utf-8") not in thesis_docx_path.read_bytes()
 
     with open_connection(settings) as connection:
         row = connection.execute(
