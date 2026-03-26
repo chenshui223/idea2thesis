@@ -693,10 +693,11 @@ describe("App history workbench", () => {
 
     render(<App />);
     await screen.findByText("Alpha research");
-    expect(screen.getByText("Visible jobs: 3")).toBeInTheDocument();
-    expect(screen.getByText("Active jobs: 1")).toBeInTheDocument();
-    expect(screen.getByText("Needs repair: 1")).toBeInTheDocument();
-    expect(screen.getByText("Deleted jobs: 0")).toBeInTheDocument();
+    const historyOverview = screen.getByLabelText("history-overview");
+    expect(within(historyOverview).getByText("Visible jobs: 3")).toBeInTheDocument();
+    expect(within(historyOverview).getByText("Active jobs: 1")).toBeInTheDocument();
+    expect(within(historyOverview).getByText("Needs repair: 1")).toBeInTheDocument();
+    expect(within(historyOverview).getByText("Deleted jobs: 0")).toBeInTheDocument();
     expect(screen.getByText("Ready")).toBeInTheDocument();
     expect(screen.getByText("In Progress")).toBeInTheDocument();
     expect(screen.getByText("Repair Needed")).toBeInTheDocument();
@@ -710,9 +711,9 @@ describe("App history workbench", () => {
     historyTable = screen.getByRole("table");
     expect(within(historyTable).getByText("Beta analysis")).toBeInTheDocument();
     expect(within(historyTable).queryByText("Alpha research")).not.toBeInTheDocument();
-    expect(screen.getByText("Visible jobs: 1")).toBeInTheDocument();
-    expect(screen.getByText("Active jobs: 1")).toBeInTheDocument();
-    expect(screen.getByText("Needs repair: 0")).toBeInTheDocument();
+    expect(within(historyOverview).getByText("Visible jobs: 1")).toBeInTheDocument();
+    expect(within(historyOverview).getByText("Active jobs: 1")).toBeInTheDocument();
+    expect(within(historyOverview).getByText("Needs repair: 0")).toBeInTheDocument();
     expect(within(historyTable).getByText("job-2")).toBeInTheDocument();
     expect(within(historyTable).getByText("Rerun from job-1")).toBeInTheDocument();
     expect(within(historyTable).queryByText("job-1")).not.toBeInTheDocument();
@@ -1227,7 +1228,14 @@ describe("App history workbench", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Preview status: idle")).toBeInTheDocument();
     expect(screen.getByText("Select an artifact to preview.")).toBeInTheDocument();
-    expect(screen.getByText(/advisor: defined delivery scope/i)).toBeInTheDocument();
+    const agentSection = screen.getByRole("heading", { name: "Agent Status" }).closest("section");
+    expect(agentSection).not.toBeNull();
+    expect(
+      within(agentSection as HTMLElement).getByText((_, element) =>
+        element?.tagName.toLowerCase() === "li" &&
+        (element.textContent?.includes("advisor - Completed: defined delivery scope") ?? false)
+      )
+    ).toBeInTheDocument();
     const artifactsSection = screen.getByRole("heading", { name: "Artifacts" }).closest("section");
     expect(artifactsSection).not.toBeNull();
     expect(
@@ -1347,6 +1355,104 @@ describe("App history workbench", () => {
     expect(screen.getByText("Event count: 2")).toBeInTheDocument();
     expect(screen.getByText("code_eval: pass")).toBeInTheDocument();
     expect(screen.getByText(/verification_completed/i)).toBeInTheDocument();
+  });
+
+  test("agent board shows grouped terminal agent outcomes for the selected job", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockResolvedValueOnce(mockSettingsResponse());
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        total: 1,
+        items: [
+          {
+            job_id: "job-4",
+            brief_title: "Blocked thesis job",
+            status: "blocked",
+            stage: "blocked",
+            final_disposition: "blocked",
+            updated_at: "2026-03-26T00:00:00Z",
+            created_at: "2026-03-26T00:00:00Z"
+          }
+        ]
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        job_id: "job-4",
+        brief_title: "Blocked thesis job",
+        source_job_id: null,
+        status: "blocked",
+        stage: "blocked",
+        final_disposition: "blocked",
+        validation_state: "blocked",
+        workspace_path: "/jobs/job-4/workspace",
+        input_file_path: "/jobs/job-4/input/brief.docx",
+        error_message: "document checks require manual repair",
+        deleted_at: null,
+        created_at: "2026-03-26T00:00:00Z",
+        updated_at: "2026-03-26T00:02:00Z",
+        agents: [
+          { role: "advisor", status: "done", summary: "defined project scope" },
+          { role: "coder", status: "done", summary: "generated initial scaffold" },
+          {
+            role: "delivery_reviewer",
+            status: "blocked",
+            summary: "deliverable set still needs manual review"
+          },
+          {
+            role: "doc_check",
+            status: "blocked",
+            summary: "document checks found issues"
+          }
+        ],
+        artifacts: [],
+        runtime_preset: {
+          global: {
+            base_url: "https://api.example.com/v1",
+            model: "gpt-4.1-mini"
+          },
+          agents: {}
+        }
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        items: []
+      })
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText("Current job: job-4")).toBeInTheDocument();
+    const agentSection = screen
+      .getByRole("heading", { name: "Agent Status" })
+      .closest("section");
+    expect(agentSection).not.toBeNull();
+    expect(
+      within(agentSection as HTMLElement).getByText("Completed agents: 2")
+    ).toBeInTheDocument();
+    expect(
+      within(agentSection as HTMLElement).getByText("Needs repair: 2")
+    ).toBeInTheDocument();
+    expect(
+      within(agentSection as HTMLElement).getByText("delivery_reviewer")
+    ).toBeInTheDocument();
+    expect(
+      within(agentSection as HTMLElement).getByText((_, element) =>
+        element?.tagName.toLowerCase() === "li" &&
+        (element.textContent?.includes("delivery_reviewer - Needs Repair") ?? false)
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(agentSection as HTMLElement).getByText((_, element) =>
+        element?.tagName.toLowerCase() === "li" &&
+        (element.textContent?.includes("doc_check - Needs Repair: document checks found issues") ??
+          false)
+      )
+    ).toBeInTheDocument();
   });
 
   test("artifact preview actions download and open the selected artifact", async () => {
