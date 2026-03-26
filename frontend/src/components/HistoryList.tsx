@@ -26,6 +26,8 @@ function describeHistorySignal(status: string) {
 }
 
 export function HistoryList(props: HistoryListProps) {
+  const hasActiveFilters =
+    props.query.search.trim().length > 0 || props.query.status !== "all";
   const filteredItems = props.items.filter((item) => {
     const matchesSearch = props.query.search
       ? `${item.brief_title} ${item.job_id} ${item.status} ${item.stage}`
@@ -90,7 +92,7 @@ export function HistoryList(props: HistoryListProps) {
         <p>Needs repair: {repairCount}</p>
         <p>Deleted jobs: {deletedCount}</p>
       </section>
-      {props.total === 0 ? (
+      {props.total === 0 && !hasActiveFilters ? (
         <section>
           <h3>No jobs yet.</h3>
           <p>Start with a sample brief or upload your own .docx design brief.</p>
@@ -99,7 +101,15 @@ export function HistoryList(props: HistoryListProps) {
           <p>3. Click Generate Project</p>
         </section>
       ) : filteredItems.length === 0 ? (
-        <p>No jobs match the current search or status filter.</p>
+        <section>
+          <p>No jobs match the current search or status filter.</p>
+          {props.query.search.trim() ? (
+            <p>Current search: "{props.query.search.trim()}"</p>
+          ) : null}
+          {props.query.status !== "all" ? (
+            <p>Current status filter: {props.query.status}</p>
+          ) : null}
+        </section>
       ) : null}
       <table>
         <thead>

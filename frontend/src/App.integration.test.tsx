@@ -801,7 +801,10 @@ describe("App history workbench", () => {
     expect(await screen.findByText("Current job: job-2")).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText("Search jobs"), "missing");
 
-    expect(await screen.findByText("No jobs yet.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("No jobs match the current search or status filter.")
+    ).toBeInTheDocument();
+    expect(screen.getByText('Current search: "missing"')).toBeInTheDocument();
     expect(localStorage.getItem("idea2thesis.history.selectedJobId")).toBe("job-2");
     expect(fetchMock).toHaveBeenCalledWith("/jobs?query=missing&sort=updated_desc");
   });
