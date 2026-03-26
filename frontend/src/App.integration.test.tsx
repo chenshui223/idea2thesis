@@ -692,11 +692,18 @@ describe("App history workbench", () => {
 
     render(<App />);
     await screen.findByText("Alpha research");
+    expect(screen.getByText("Visible jobs: 3")).toBeInTheDocument();
+    expect(screen.getByText("Active jobs: 1")).toBeInTheDocument();
+    expect(screen.getByText("Needs repair: 1")).toBeInTheDocument();
+    expect(screen.getByText("Deleted jobs: 0")).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText("Search jobs"), "beta");
     let historyTable = screen.getByRole("table");
     expect(within(historyTable).getByText("Beta analysis")).toBeInTheDocument();
     expect(within(historyTable).queryByText("Alpha research")).not.toBeInTheDocument();
+    expect(screen.getByText("Visible jobs: 1")).toBeInTheDocument();
+    expect(screen.getByText("Active jobs: 1")).toBeInTheDocument();
+    expect(screen.getByText("Needs repair: 0")).toBeInTheDocument();
 
     await userEvent.selectOptions(screen.getByLabelText("Status filter"), "running");
     historyTable = screen.getByRole("table");

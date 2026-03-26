@@ -23,6 +23,13 @@ export function HistoryList(props: HistoryListProps) {
       props.query.status === "all" ? true : item.status === props.query.status;
     return matchesSearch && matchesStatus;
   });
+  const activeCount = filteredItems.filter((item) =>
+    ["pending", "running"].includes(item.status)
+  ).length;
+  const repairCount = filteredItems.filter((item) =>
+    ["failed", "blocked"].includes(item.status)
+  ).length;
+  const deletedCount = filteredItems.filter((item) => item.status === "deleted").length;
 
   return (
     <section>
@@ -64,6 +71,12 @@ export function HistoryList(props: HistoryListProps) {
         </select>
       </label>
       <p>Total jobs: {props.total}</p>
+      <section aria-label="history-overview">
+        <p>Visible jobs: {filteredItems.length}</p>
+        <p>Active jobs: {activeCount}</p>
+        <p>Needs repair: {repairCount}</p>
+        <p>Deleted jobs: {deletedCount}</p>
+      </section>
       {props.total === 0 ? (
         <section>
           <h3>No jobs yet.</h3>
