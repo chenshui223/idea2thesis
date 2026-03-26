@@ -324,6 +324,7 @@ export default function App() {
   const [artifactActionError, setArtifactActionError] = useState("");
   const [artifactActionBusy, setArtifactActionBusy] = useState(false);
   const pollTimerRef = useRef<number | null>(null);
+  const historyQueryRef = useRef(historyQuery);
   const selectedJobId = selectedJob?.job_id ?? snapshot.job_id;
 
   const stopPolling = () => {
@@ -434,8 +435,15 @@ export default function App() {
     pollTimerRef.current = window.setInterval(async () => {
       try {
         const nextDetail = await fetchJobDetail(jobId);
+        const [eventsResponse, historyResponse] = await Promise.all([
+          fetchJobEvents(jobId),
+          fetchJobs(historyQueryRef.current)
+        ]);
         setSelectedJob(nextDetail);
         setSnapshot(buildSelectedSnapshot(nextDetail));
+        setSelectedJobEvents(eventsResponse.items);
+        setHistoryItems(historyResponse.items);
+        setHistoryTotal(historyResponse.total);
         if (isTerminal(nextDetail) || isDeleted(nextDetail)) {
           stopPolling();
         }
@@ -644,6 +652,10 @@ export default function App() {
       stopPolling();
     };
   }, []);
+
+  useEffect(() => {
+    historyQueryRef.current = historyQuery;
+  }, [historyQuery]);
 
   useEffect(() => {
     let cancelled = false;
