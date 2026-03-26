@@ -7,7 +7,8 @@ export default defineConfig({
     proxy: {
       "/health": "http://127.0.0.1:8000",
       "/settings": "http://127.0.0.1:8000",
-      "/jobs": "http://127.0.0.1:8000"
+      "/jobs": "http://127.0.0.1:8000",
+      "/templates": "http://127.0.0.1:8000"
     }
   },
   test: {
