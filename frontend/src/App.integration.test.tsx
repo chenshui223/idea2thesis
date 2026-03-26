@@ -2110,6 +2110,10 @@ describe("App history workbench", () => {
     render(<App />);
 
     expect(await screen.findByText("Current job: job-3")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "interrupted" })).toBeInTheDocument();
+    const interruptedRow = screen.getByRole("row", { name: /Interrupted thesis job/ });
+    expect(within(interruptedRow).getByText("Interrupted")).toBeInTheDocument();
+    expect(within(interruptedRow).getByText("Rerun required")).toBeInTheDocument();
     expect(screen.getByText("Recommended Next Steps")).toBeInTheDocument();
     expect(
       screen.getByText("This job was interrupted before the workflow finished.")
@@ -2121,6 +2125,17 @@ describe("App history workbench", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText("Reported issue: local runtime stopped before writer completed")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Validation summary: Validation was interrupted before the deliverable could be verified."
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByText("Confidence summary: Delivery interrupted")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Recommended action: Confirm the local worker is available, then rerun the job with a fresh API key."
+      )
     ).toBeInTheDocument();
   });
 });

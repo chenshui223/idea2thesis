@@ -64,6 +64,14 @@ function normalizeRuntimePreset(input: any): RuntimePreset {
   };
 }
 
+function normalizeFinalDisposition(status: string, finalDisposition: string | undefined) {
+  if (status === "interrupted" && (!finalDisposition || finalDisposition === "pending")) {
+    return "interrupted";
+  }
+
+  return finalDisposition ?? status ?? "pending";
+}
+
 function normalizeHistoryItem(item: any): HistoryListItem {
   return {
     job_id: item.job_id,
@@ -71,7 +79,10 @@ function normalizeHistoryItem(item: any): HistoryListItem {
     source_job_id: item.source_job_id ?? null,
     status: item.status ?? "pending",
     stage: item.stage ?? "",
-    final_disposition: item.final_disposition ?? item.status ?? "pending",
+    final_disposition: normalizeFinalDisposition(
+      item.status ?? "pending",
+      item.final_disposition
+    ),
     created_at: item.created_at ?? item.updated_at ?? "",
     updated_at: item.updated_at ?? item.created_at ?? ""
   };
@@ -94,7 +105,10 @@ function normalizeJobDetail(detail: any): JobDetail {
     started_at: detail.started_at ?? null,
     finished_at: detail.finished_at ?? null,
     validation_state: detail.validation_state ?? "pending",
-    final_disposition: detail.final_disposition ?? detail.status ?? "pending",
+    final_disposition: normalizeFinalDisposition(
+      detail.status ?? "pending",
+      detail.final_disposition
+    ),
     agents: detail.agents ?? [],
     artifacts: detail.artifacts ?? [],
     runtime_preset: normalizeRuntimePreset(detail.runtime_preset ?? {})

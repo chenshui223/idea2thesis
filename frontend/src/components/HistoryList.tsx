@@ -9,7 +9,16 @@ type HistoryListProps = {
   onQueryChange: (patch: Partial<JobListQuery>) => void;
 };
 
-const STATUS_OPTIONS = ["all", "pending", "running", "completed", "failed", "blocked", "deleted"];
+const STATUS_OPTIONS = [
+  "all",
+  "pending",
+  "running",
+  "completed",
+  "failed",
+  "blocked",
+  "interrupted",
+  "deleted"
+];
 const SORT_OPTIONS = ["updated_desc", "created_desc", "created_asc"];
 
 function describeHistorySignal(status: string) {
@@ -18,6 +27,9 @@ function describeHistorySignal(status: string) {
   }
   if (status === "failed" || status === "blocked") {
     return "Repair Needed";
+  }
+  if (status === "interrupted") {
+    return "Interrupted";
   }
   if (status === "deleted") {
     return "Archived";
@@ -37,6 +49,9 @@ function describeDeliverySignal(
   }
   if (finalDisposition === "blocked" || finalDisposition === "failed") {
     return "Repair required";
+  }
+  if (status === "interrupted" || finalDisposition === "interrupted") {
+    return "Rerun required";
   }
   return "Evidence pending";
 }

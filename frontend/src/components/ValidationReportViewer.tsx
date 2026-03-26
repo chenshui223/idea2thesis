@@ -15,6 +15,10 @@ function buildValidationSummary(validationState: string, disposition: string) {
     return "Validation is blocked and manual repair is required.";
   }
 
+  if (validationState === "interrupted" || disposition === "interrupted") {
+    return "Validation was interrupted before the deliverable could be verified.";
+  }
+
   if (disposition === "failed") {
     return "Validation finished with a failed delivery outcome.";
   }
@@ -35,6 +39,10 @@ function buildRecommendedAction(validationState: string, disposition: string) {
     return "Inspect reviewer output, repair the generated files, and rerun with a fresh API key.";
   }
 
+  if (validationState === "interrupted" || disposition === "interrupted") {
+    return "Confirm the local worker is available, then rerun the job with a fresh API key.";
+  }
+
   if (disposition === "failed" || validationState === "failed") {
     return "Open the latest verification artifacts and fix the generated code before rerunning.";
   }
@@ -52,6 +60,9 @@ function buildConfidenceSummary(validationState: string, disposition: string) {
   }
   if (validationState === "blocked" || disposition === "blocked") {
     return "Delivery blocked";
+  }
+  if (validationState === "interrupted" || disposition === "interrupted") {
+    return "Delivery interrupted";
   }
   if (validationState === "failed" || disposition === "failed") {
     return "Delivery failed validation";
