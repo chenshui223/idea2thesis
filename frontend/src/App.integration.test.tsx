@@ -1278,4 +1278,219 @@ describe("App history workbench", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("3. Click Generate Project")).toBeInTheDocument();
   });
+
+  test("job detail shows repair guidance for blocked jobs", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockResolvedValueOnce(mockSettingsResponse());
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        total: 1,
+        items: [
+          {
+            job_id: "job-1",
+            brief_title: "Blocked thesis job",
+            status: "blocked",
+            stage: "blocked",
+            final_disposition: "blocked",
+            updated_at: "2026-03-26T00:00:00Z",
+            created_at: "2026-03-26T00:00:00Z"
+          }
+        ]
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        job_id: "job-1",
+        brief_title: "Blocked thesis job",
+        source_job_id: null,
+        status: "blocked",
+        stage: "blocked",
+        final_disposition: "blocked",
+        validation_state: "blocked",
+        workspace_path: "/jobs/job-1/workspace",
+        input_file_path: "/jobs/job-1/input/brief.docx",
+        error_message: "delivery reviewer marked thesis draft as incomplete",
+        deleted_at: null,
+        created_at: "2026-03-26T00:00:00Z",
+        updated_at: "2026-03-26T00:02:00Z",
+        agents: [],
+        artifacts: [],
+        runtime_preset: {
+          global: {
+            base_url: "https://api.example.com/v1",
+            model: "gpt-4.1-mini"
+          },
+          agents: {}
+        }
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        items: []
+      })
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText("Current job: job-1")).toBeInTheDocument();
+    expect(screen.getByText("Recommended Next Steps")).toBeInTheDocument();
+    expect(
+      screen.getByText("This job is blocked and needs manual repair before delivery.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Review the generated artifacts, fix the reported issues, and rerun the job."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Reported issue: delivery reviewer marked thesis draft as incomplete"
+      )
+    ).toBeInTheDocument();
+  });
+
+  test("job detail shows repair guidance for failed jobs", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockResolvedValueOnce(mockSettingsResponse());
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        total: 1,
+        items: [
+          {
+            job_id: "job-2",
+            brief_title: "Failed thesis job",
+            status: "failed",
+            stage: "implementation",
+            final_disposition: "failed",
+            updated_at: "2026-03-26T00:10:00Z",
+            created_at: "2026-03-26T00:00:00Z"
+          }
+        ]
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        job_id: "job-2",
+        brief_title: "Failed thesis job",
+        source_job_id: null,
+        status: "failed",
+        stage: "implementation",
+        final_disposition: "failed",
+        validation_state: "failed",
+        workspace_path: "/jobs/job-2/workspace",
+        input_file_path: "/jobs/job-2/input/brief.docx",
+        error_message: "python evaluation agent crashed with exit code 1",
+        deleted_at: null,
+        created_at: "2026-03-26T00:00:00Z",
+        updated_at: "2026-03-26T00:12:00Z",
+        agents: [],
+        artifacts: [],
+        runtime_preset: {
+          global: {
+            base_url: "https://api.example.com/v1",
+            model: "gpt-4.1-mini"
+          },
+          agents: {}
+        }
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        items: []
+      })
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText("Current job: job-2")).toBeInTheDocument();
+    expect(screen.getByText("Recommended Next Steps")).toBeInTheDocument();
+    expect(
+      screen.getByText("This job failed before it could produce a deliverable result.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Inspect the failure details, verify runtime settings or generated code, and rerun the job."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Reported issue: python evaluation agent crashed with exit code 1")
+    ).toBeInTheDocument();
+  });
+
+  test("job detail shows repair guidance for interrupted jobs", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockResolvedValueOnce(mockSettingsResponse());
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        total: 1,
+        items: [
+          {
+            job_id: "job-3",
+            brief_title: "Interrupted thesis job",
+            status: "interrupted",
+            stage: "writer",
+            final_disposition: "pending",
+            updated_at: "2026-03-26T00:20:00Z",
+            created_at: "2026-03-26T00:00:00Z"
+          }
+        ]
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        job_id: "job-3",
+        brief_title: "Interrupted thesis job",
+        source_job_id: null,
+        status: "interrupted",
+        stage: "writer",
+        final_disposition: "pending",
+        validation_state: "pending",
+        workspace_path: "/jobs/job-3/workspace",
+        input_file_path: "/jobs/job-3/input/brief.docx",
+        error_message: "local runtime stopped before writer completed",
+        deleted_at: null,
+        created_at: "2026-03-26T00:00:00Z",
+        updated_at: "2026-03-26T00:22:00Z",
+        agents: [],
+        artifacts: [],
+        runtime_preset: {
+          global: {
+            base_url: "https://api.example.com/v1",
+            model: "gpt-4.1-mini"
+          },
+          agents: {}
+        }
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        items: []
+      })
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText("Current job: job-3")).toBeInTheDocument();
+    expect(screen.getByText("Recommended Next Steps")).toBeInTheDocument();
+    expect(
+      screen.getByText("This job was interrupted before the workflow finished.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Check the last completed stage, confirm the environment is ready, and rerun the job."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Reported issue: local runtime stopped before writer completed")
+    ).toBeInTheDocument();
+  });
 });
