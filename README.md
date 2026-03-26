@@ -19,6 +19,11 @@ English summary:
 
 `idea2thesis` is a local single-user web app that turns a `.docx` graduation thesis brief into a generated repository workspace, project documents, a thesis first draft, and local verification evidence.
 
+## 开源信息
+
+- License: [Apache License 2.0](LICENSE)
+- Contribution Guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+
 ## 当前产品状态
 
 当前仓库已经具备这些核心能力：
