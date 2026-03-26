@@ -25,6 +25,22 @@ function describeHistorySignal(status: string) {
   return "In Progress";
 }
 
+function describeDeliverySignal(
+  status: string,
+  finalDisposition: string
+) {
+  if (status === "deleted") {
+    return "Archived";
+  }
+  if (finalDisposition === "completed") {
+    return "Ready to deliver";
+  }
+  if (finalDisposition === "blocked" || finalDisposition === "failed") {
+    return "Repair required";
+  }
+  return "Evidence pending";
+}
+
 export function HistoryList(props: HistoryListProps) {
   const hasActiveFilters =
     props.query.search.trim().length > 0 || props.query.status !== "all";
@@ -136,6 +152,7 @@ export function HistoryList(props: HistoryListProps) {
               <td>
                 <strong>{item.status}</strong>
                 <div>{describeHistorySignal(item.status)}</div>
+                <div>{describeDeliverySignal(item.status, item.final_disposition)}</div>
               </td>
               <td>{item.stage}</td>
               <td>{item.updated_at}</td>

@@ -698,9 +698,9 @@ describe("App history workbench", () => {
     expect(within(historyOverview).getByText("Active jobs: 1")).toBeInTheDocument();
     expect(within(historyOverview).getByText("Needs repair: 1")).toBeInTheDocument();
     expect(within(historyOverview).getByText("Deleted jobs: 0")).toBeInTheDocument();
-    expect(screen.getByText("Ready")).toBeInTheDocument();
-    expect(screen.getByText("In Progress")).toBeInTheDocument();
-    expect(screen.getByText("Repair Needed")).toBeInTheDocument();
+    expect(screen.getByText("Ready to deliver")).toBeInTheDocument();
+    expect(screen.getByText("Evidence pending")).toBeInTheDocument();
+    expect(screen.getByText("Repair required")).toBeInTheDocument();
     let historyTable = screen.getByRole("table");
     expect(within(historyTable).getByText("job-1")).toBeInTheDocument();
     expect(within(historyTable).getByText("job-2")).toBeInTheDocument();
@@ -1115,7 +1115,7 @@ describe("App history workbench", () => {
     );
 
     const secondRow = screen.getByRole("row", { name: /Second job/ });
-    expect(within(secondRow).getByText("Ready")).toBeInTheDocument();
+    expect(within(secondRow).getByText("Ready to deliver")).toBeInTheDocument();
     expect(within(secondRow).getByText("2026-03-25T00:00:05Z")).toBeInTheDocument();
     expect(screen.getByText("Event count: 2")).toBeInTheDocument();
     expect(screen.getByText("Latest event: stage completed")).toBeInTheDocument();
