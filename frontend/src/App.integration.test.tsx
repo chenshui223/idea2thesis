@@ -1226,6 +1226,12 @@ describe("App history workbench", () => {
     expect(
       screen.getByText("Validation summary: Validation completed and the deliverable is ready.")
     ).toBeInTheDocument();
+    expect(screen.getByText("Delivery Confidence")).toBeInTheDocument();
+    expect(screen.getByText("Confidence summary: Ready to deliver")).toBeInTheDocument();
+    expect(screen.getByText("Evidence count: 3")).toBeInTheDocument();
+    expect(screen.getByText("Job manifest")).toBeInTheDocument();
+    expect(screen.getByText("Code verification artifact")).toBeInTheDocument();
+    expect(screen.getByText("Word thesis draft")).toBeInTheDocument();
     expect(screen.getByText("Preview status: idle")).toBeInTheDocument();
     expect(screen.getByText("Select an artifact to preview.")).toBeInTheDocument();
     const agentSection = screen.getByRole("heading", { name: "Agent Status" }).closest("section");
@@ -1973,6 +1979,7 @@ describe("App history workbench", () => {
     expect(
       screen.getByText("Validation summary: Validation is blocked and manual repair is required.")
     ).toBeInTheDocument();
+    expect(screen.getByText("Confidence summary: Delivery blocked")).toBeInTheDocument();
   });
 
   test("job detail shows repair guidance for failed jobs", async () => {

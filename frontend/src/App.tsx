@@ -969,6 +969,7 @@ export default function App() {
         <ValidationReportViewer
           validationState={snapshot.validation_state}
           disposition={snapshot.final_disposition}
+          artifacts={snapshot.artifacts}
         />
       </section>
 

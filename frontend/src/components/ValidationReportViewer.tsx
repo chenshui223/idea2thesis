@@ -1,6 +1,9 @@
+import type { ArtifactRef } from "../types";
+
 type ValidationReportViewerProps = {
   validationState: string;
   disposition: string;
+  artifacts: ArtifactRef[];
 };
 
 function buildValidationSummary(validationState: string, disposition: string) {
@@ -43,6 +46,42 @@ function buildRecommendedAction(validationState: string, disposition: string) {
   return "Keep this page open. The worker will pick up the queued job automatically.";
 }
 
+function buildConfidenceSummary(validationState: string, disposition: string) {
+  if (validationState === "completed" && disposition === "completed") {
+    return "Ready to deliver";
+  }
+  if (validationState === "blocked" || disposition === "blocked") {
+    return "Delivery blocked";
+  }
+  if (validationState === "failed" || disposition === "failed") {
+    return "Delivery failed validation";
+  }
+  if (validationState === "running") {
+    return "Evidence still being collected";
+  }
+  return "Evidence pending";
+}
+
+function buildEvidenceList(artifacts: ArtifactRef[]) {
+  const labels: string[] = [];
+  const kinds = new Set(artifacts.map((artifact) => artifact.kind));
+
+  if (kinds.has("job_manifest")) {
+    labels.push("Job manifest");
+  }
+  if (kinds.has("code_eval")) {
+    labels.push("Code verification artifact");
+  }
+  if (kinds.has("doc_check")) {
+    labels.push("Document check artifact");
+  }
+  if (kinds.has("thesis_draft_docx")) {
+    labels.push("Word thesis draft");
+  }
+
+  return labels;
+}
+
 export function ValidationReportViewer(props: ValidationReportViewerProps) {
   const summary = buildValidationSummary(
     props.validationState,
@@ -52,11 +91,28 @@ export function ValidationReportViewer(props: ValidationReportViewerProps) {
     props.validationState,
     props.disposition
   );
+  const confidenceSummary = buildConfidenceSummary(
+    props.validationState,
+    props.disposition
+  );
+  const evidenceList = buildEvidenceList(props.artifacts);
 
   return (
     <section>
       <h2>Validation Report</h2>
       <p>Validation summary: {summary}</p>
+      <h3>Delivery Confidence</h3>
+      <p>Confidence summary: {confidenceSummary}</p>
+      <p>Evidence count: {evidenceList.length}</p>
+      {evidenceList.length > 0 ? (
+        <ul>
+          {evidenceList.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : (
+        <p>No delivery evidence recorded yet.</p>
+      )}
       <p>Recommended action: {recommendedAction}</p>
       <p>Validation state: {props.validationState}</p>
       <p>Final disposition: {props.disposition}</p>
