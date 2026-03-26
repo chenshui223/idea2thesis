@@ -11,3 +11,5 @@ jobs/
 .superpowers/
 backend/.coverage
 frontend/.vite/
+.playwright-cli/
+output/
