@@ -38,6 +38,27 @@ function describeStage(stage: string) {
       guidance: "The writer agent is drafting the thesis first draft and repository documents."
     };
   }
+  if (stage === "advisor") {
+    return {
+      current: "Advisor",
+      label: "Planning the delivery scope",
+      guidance: "The advisor agent is analyzing the brief and defining the delivery scope."
+    };
+  }
+  if (stage === "coder") {
+    return {
+      current: "Coder",
+      label: "Generating the runnable scaffold",
+      guidance: "The coder agent is generating the runnable scaffold and implementation plan."
+    };
+  }
+  if (stage === "writer") {
+    return {
+      current: "Writer",
+      label: "Writing the thesis draft",
+      guidance: "The writer agent is drafting the thesis first draft and repository documents."
+    };
+  }
   if (stage === "review_running") {
     return {
       current: "Review",
@@ -45,7 +66,23 @@ function describeStage(stage: string) {
       guidance: "Reviewer agents are checking brief alignment, engineering quality, and delivery readiness."
     };
   }
+  if (
+    ["requirements_reviewer", "engineering_reviewer", "delivery_reviewer"].includes(stage)
+  ) {
+    return {
+      current: "Reviewer Checks",
+      label: "Reviewing the deliverables",
+      guidance: "Reviewer agents are checking brief alignment, engineering quality, and delivery readiness."
+    };
+  }
   if (stage === "verification_running") {
+    return {
+      current: "Local Verification",
+      label: "Verifying deliverables",
+      guidance: "The generated workspace and thesis draft are being checked before final delivery."
+    };
+  }
+  if (stage === "code_eval" || stage === "doc_check") {
     return {
       current: "Local Verification",
       label: "Verifying deliverables",
