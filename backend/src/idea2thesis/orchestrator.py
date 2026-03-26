@@ -191,6 +191,10 @@ def _build_design_report_markdown(
     )
 
 
+def _review_agent_status(status: str) -> str:
+    return "blocked" if status == "must_fix" else "done"
+
+
 def _build_thesis_docx(
     *,
     path: Path,
@@ -869,21 +873,29 @@ class SupervisorOrchestrator:
             AgentStatus(role="writer", status="done", summary="generated thesis draft and design report"),
             AgentStatus(
                 role="requirements_reviewer",
-                status="done",
+                status=_review_agent_status(requirements_review.status),
                 summary=requirements_review.summary,
             ),
             AgentStatus(
                 role="engineering_reviewer",
-                status="done",
+                status=_review_agent_status(engineering_review.status),
                 summary=engineering_review.summary,
             ),
             AgentStatus(
                 role="delivery_reviewer",
-                status="done",
+                status=_review_agent_status(delivery_review.status),
                 summary=delivery_review.summary,
             ),
-            AgentStatus(role="code_eval", status="done", summary=code_eval_artifact.summary),
-            AgentStatus(role="doc_check", status="done", summary=doc_check_artifact.summary),
+            AgentStatus(
+                role="code_eval",
+                status="failed" if code_eval_artifact.status == "failed" else "done",
+                summary=code_eval_artifact.summary,
+            ),
+            AgentStatus(
+                role="doc_check",
+                status=_review_agent_status(doc_check_artifact.status),
+                summary=doc_check_artifact.summary,
+            ),
         ]
 
         workspace_artifacts = [
