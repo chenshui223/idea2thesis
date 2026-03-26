@@ -23,6 +23,7 @@ English summary:
 
 - License: [Apache License 2.0](LICENSE)
 - Contribution Guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
 
 ## 当前产品状态
 
