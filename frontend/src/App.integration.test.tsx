@@ -282,6 +282,110 @@ describe("App history workbench", () => {
     expect(screen.getByText("Second job")).toBeInTheDocument();
   });
 
+  test("reopens with the previously selected job restored from local storage", async () => {
+    localStorage.setItem("idea2thesis.history.selectedJobId", "job-2");
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
+      async (input) => {
+        const url = String(input);
+        if (url === "/settings") {
+          return mockSettingsResponse();
+        }
+        if (url === "/jobs" || url === "/jobs?sort=updated_desc") {
+          return mockResponse({
+            schema_version: "v1alpha1",
+            total: 2,
+            items: [
+              {
+                job_id: "job-1",
+                title: "First job",
+                status: "completed",
+                stage: "done",
+                final_disposition: "completed",
+                updated_at: "2026-03-25T00:00:00Z"
+              },
+              {
+                job_id: "job-2",
+                title: "Second job",
+                status: "running",
+                stage: "drafting",
+                final_disposition: "pending",
+                updated_at: "2026-03-25T00:00:01Z"
+              }
+            ]
+          });
+        }
+        if (url === "/jobs/job-1") {
+          return mockResponse({
+            schema_version: "v1alpha1",
+            job_id: "job-1",
+            source_job_id: null,
+            title: "First job",
+            status: "completed",
+            stage: "done",
+            final_disposition: "completed",
+            validation_state: "completed",
+            workspace_path: "/jobs/job-1/workspace",
+            input_file_path: "/jobs/job-1/input/brief.docx",
+            error_message: null,
+            deleted_at: null,
+            runtime_preset: {
+              apiKeyConfigured: true,
+              base_url: "https://api.example.com/v1",
+              model: "gpt-4.1-mini",
+              agents: {}
+            }
+          });
+        }
+        if (url === "/jobs/job-1/events") {
+          return mockResponse({
+            schema_version: "v1alpha1",
+            items: []
+          });
+        }
+        if (url === "/jobs/job-2") {
+          return mockResponse({
+            schema_version: "v1alpha1",
+            job_id: "job-2",
+            source_job_id: "job-1",
+            title: "Second job",
+            status: "running",
+            stage: "drafting",
+            final_disposition: "pending",
+            validation_state: "running",
+            workspace_path: "/jobs/job-2/workspace",
+            input_file_path: "/jobs/job-2/input/brief.docx",
+            error_message: null,
+            deleted_at: null,
+            runtime_preset: {
+              apiKeyConfigured: false,
+              base_url: "https://api.example.com/v1",
+              model: "gpt-4.1-mini",
+              agents: {}
+            }
+          });
+        }
+        if (url === "/jobs/job-2/events") {
+          return mockResponse({
+            schema_version: "v1alpha1",
+            items: []
+          });
+        }
+
+        throw new Error(`unexpected fetch: ${url}`);
+      }
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText("Current job: job-2")).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /Second job/ })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+    expect(fetchMock).toHaveBeenCalledWith("/jobs/job-2");
+  });
+
   test("rerun repopulates non-sensitive settings only and selects new job", async () => {
     let historyRequestCount = 0;
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
@@ -434,6 +538,7 @@ describe("App history workbench", () => {
     await waitFor(() =>
       expect(screen.getByLabelText("Model")).toHaveValue("gpt-4.1-mini")
     );
+    expect(localStorage.getItem("idea2thesis.history.selectedJobId")).toBe("job-2");
   });
 
   test("delete marks a terminal job deleted and keeps it selected", async () => {
@@ -597,6 +702,89 @@ describe("App history workbench", () => {
     historyTable = screen.getByRole("table");
     expect(within(historyTable).getByText("Beta analysis")).toBeInTheDocument();
     expect(within(historyTable).queryByText("Gamma plan")).not.toBeInTheDocument();
+  });
+
+  test("temporary empty search results do not clear the remembered job selection", async () => {
+    localStorage.setItem("idea2thesis.history.selectedJobId", "job-2");
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
+      async (input) => {
+        const url = String(input);
+        if (url === "/settings") {
+          return mockSettingsResponse();
+        }
+        if (url === "/jobs?sort=updated_desc") {
+          return mockResponse({
+            schema_version: "v1alpha1",
+            total: 2,
+            items: [
+              {
+                job_id: "job-1",
+                title: "Alpha research",
+                status: "completed",
+                stage: "done",
+                final_disposition: "completed",
+                updated_at: "2026-03-25T00:00:00Z"
+              },
+              {
+                job_id: "job-2",
+                title: "Beta analysis",
+                status: "running",
+                stage: "drafting",
+                final_disposition: "pending",
+                updated_at: "2026-03-25T00:00:01Z"
+              }
+            ]
+          });
+        }
+        if (url === "/jobs?query=missing&sort=updated_desc") {
+          return mockResponse({
+            schema_version: "v1alpha1",
+            total: 0,
+            items: []
+          });
+        }
+        if (url === "/jobs/job-2") {
+          return mockResponse({
+            schema_version: "v1alpha1",
+            job_id: "job-2",
+            source_job_id: null,
+            title: "Beta analysis",
+            status: "running",
+            stage: "drafting",
+            final_disposition: "pending",
+            validation_state: "running",
+            workspace_path: "/jobs/job-2/workspace",
+            input_file_path: "/jobs/job-2/input/brief.docx",
+            error_message: null,
+            deleted_at: null,
+            runtime_preset: {
+              apiKeyConfigured: true,
+              base_url: "https://api.example.com/v1",
+              model: "gpt-4.1-mini",
+              agents: {}
+            }
+          });
+        }
+        if (url === "/jobs/job-2/events") {
+          return mockResponse({
+            schema_version: "v1alpha1",
+            items: []
+          });
+        }
+
+        throw new Error(`unexpected fetch: ${url}`);
+      }
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText("Current job: job-2")).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Search jobs"), "missing");
+
+    expect(await screen.findByText("No jobs yet.")).toBeInTheDocument();
+    expect(localStorage.getItem("idea2thesis.history.selectedJobId")).toBe("job-2");
+    expect(fetchMock).toHaveBeenCalledWith("/jobs?query=missing&sort=updated_desc");
   });
 
   test("selected active job polling only", async () => {

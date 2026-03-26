@@ -55,6 +55,7 @@ const emptySnapshot: JobSnapshot = {
 
 const SETTINGS_CACHE_KEY = "idea2thesis.settings.cache";
 const HISTORY_QUERY_KEY = "idea2thesis.history.query";
+const HISTORY_SELECTED_JOB_KEY = "idea2thesis.history.selectedJobId";
 const DEFAULT_THESIS_COVER: GlobalSettings["thesisCover"] = {
   school: "待填写学校",
   department: "待填写学院",
@@ -93,6 +94,26 @@ function readCachedHistoryQuery(): JobListQuery | null {
     return raw ? (JSON.parse(raw) as JobListQuery) : null;
   } catch {
     return null;
+  }
+}
+
+function readCachedSelectedJobId(): string {
+  try {
+    return window.localStorage.getItem(HISTORY_SELECTED_JOB_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function persistSelectedJobId(jobId: string) {
+  try {
+    if (!jobId) {
+      window.localStorage.removeItem(HISTORY_SELECTED_JOB_KEY);
+      return;
+    }
+    window.localStorage.setItem(HISTORY_SELECTED_JOB_KEY, jobId);
+  } catch {
+    return;
   }
 }
 
@@ -259,6 +280,7 @@ export default function App() {
   const cachedSettings = readCachedSettings();
   const initialSettings = mergePersistedSettings(cachedSettings);
   const cachedQuery = readCachedHistoryQuery();
+  const cachedSelectedJobId = readCachedSelectedJobId();
 
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(
     initialSettings.global
@@ -274,6 +296,9 @@ export default function App() {
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyQuery, setHistoryQuery] = useState<JobListQuery>(
     cachedQuery ?? { search: "", status: "all", sort: "updated_desc" }
+  );
+  const [persistedSelectedJobId, setPersistedSelectedJobId] = useState(
+    cachedSelectedJobId
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
@@ -369,6 +394,8 @@ export default function App() {
       handleClearArtifactPreview();
       setSelectedJob(detail);
       setSnapshot(buildSelectedSnapshot(detail));
+      setPersistedSelectedJobId(detail.job_id);
+      persistSelectedJobId(detail.job_id);
       return detail;
     } catch (error) {
       setDetailError(
@@ -543,6 +570,8 @@ export default function App() {
       );
       setSelectedJob(nextDetail);
       setSnapshot(buildSelectedSnapshot(nextDetail));
+      setPersistedSelectedJobId(nextDetail.job_id);
+      persistSelectedJobId(nextDetail.job_id);
       await loadHistory(historyQuery);
       await loadEvents(nextDetail.job_id);
       if (nextDetail.status === "pending") {
@@ -619,12 +648,18 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     void loadHistory(historyQuery).then(async (items) => {
-      if (cancelled || !items || items.length === 0) {
+      if (cancelled || !items) {
+        return;
+      }
+      if (items.length === 0) {
         return;
       }
       const selectedId =
         selectedJobId && items.some((item) => item.job_id === selectedJobId)
           ? selectedJobId
+          : persistedSelectedJobId &&
+              items.some((item) => item.job_id === persistedSelectedJobId)
+            ? persistedSelectedJobId
           : items[0].job_id;
       if (!selectedJobId || selectedId !== selectedJobId) {
         await selectJob(selectedId);
