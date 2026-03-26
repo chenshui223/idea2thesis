@@ -45,6 +45,20 @@ English summary:
 - `code_eval`
 - `doc_check`
 
+## 产品截图
+
+首页与一键生成入口：
+
+![idea2thesis 首页](docs/images/readme/home.png)
+
+历史工作台与任务详情：
+
+![idea2thesis 历史工作台](docs/images/readme/history-workbench.png)
+
+产物列表与预览面板：
+
+![idea2thesis 产物预览](docs/images/readme/artifacts-preview.png)
+
 ## 适用场景
 
 适合这类使用方式：
