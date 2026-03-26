@@ -7,11 +7,47 @@
 - a thesis first draft
 - local verification evidence
 
+The intended usage model is:
+
+- clone this repository locally
+- provide your own `API Key` and `Base URL`
+- run the web app on your own machine
+- generate thesis project outputs into local `jobs/`
+
 ## Requirements
 
 - Python 3.12+
 - Node.js 20+
 - an OpenAI-compatible endpoint
+
+## Quick Start
+
+```bash
+git clone https://github.com/chenshui223/idea2thesis.git
+cd idea2thesis
+bash scripts/bootstrap.sh
+bash scripts/dev.sh
+```
+
+Then open:
+
+- frontend: `http://127.0.0.1:5173`
+- backend API: `http://127.0.0.1:8000`
+
+Recommended first-run flow:
+
+1. click `Download Sample Brief` if you want a ready-made `.docx`
+2. enter your `API Key`
+3. confirm `Base URL` and `Model`
+4. optionally open `Advanced Settings` for per-agent overrides
+5. upload a `.docx` brief
+6. click `Generate Project`
+
+For a quick environment check without starting services:
+
+```bash
+bash scripts/dev.sh --check
+```
 
 ## Environment Variables
 
@@ -33,6 +69,12 @@ Persistence rules:
 - `Base URL` and `Model` are persisted
 - per-agent override `use_global`, `Base URL`, and `Model` are persisted
 - persisted non-sensitive settings are written by the backend to a local JSON file and restored on reload
+
+In the web UI:
+
+- one global `API Key + Base URL + Model` is enough for normal use
+- each agent can optionally override `API Key`, `Base URL`, and `Model`
+- `API Key` values are runtime-only and must be re-entered after refresh or rerun
 
 ## Backend Setup
 
@@ -88,6 +130,27 @@ Optional environment check:
 ```bash
 bash scripts/dev.sh --check
 ```
+
+## Local Deployment Notes
+
+This project is designed for local single-user deployment, not shared hosted SaaS.
+
+What runs locally:
+
+- FastAPI backend
+- local async worker process
+- Vite frontend dev server
+- SQLite job store under `.idea2thesis/jobs.db`
+
+What gets written locally:
+
+- uploaded briefs under `jobs/<job-id>/input/`
+- parsed brief snapshots under `jobs/<job-id>/parsed/`
+- generated repositories under `jobs/<job-id>/workspace/`
+- generated documents and manifests under `jobs/<job-id>/artifacts/`
+- machine-local runtime secrets under `.idea2thesis/`
+
+To stop everything, press `Ctrl+C` in the terminal that launched `bash scripts/dev.sh`.
 
 ## Local Jobs
 
@@ -223,3 +286,56 @@ The final job manifest under `artifacts/final/job_manifest.json` summarizes:
 - durable artifact paths used by the history workbench
 
 Runtime API keys are not written into persisted runtime settings, durable artifacts, or the final manifest.
+
+## Secret Safety
+
+The repository is set up so local runtime state is not supposed to be committed:
+
+- `jobs/` is ignored by git
+- `.idea2thesis/` is ignored by git
+- `.env` is ignored by git
+
+That means your local generated workspaces, local SQLite state, and local secret handoff files should stay out of GitHub unless you manually override git and add them yourself.
+
+Current safety boundary:
+
+- safe to push normal source code, tests, and docs in this repository
+- not safe to commit local runtime files under `jobs/`, `.idea2thesis/`, or ad-hoc secret files you create yourself
+- API keys entered in the browser are intentionally not persisted into the saved settings JSON
+
+Before pushing, it is still worth checking:
+
+```bash
+git status --short
+```
+
+If you only see tracked source files you intended to change, you are fine.
+
+## Troubleshooting
+
+If `bash scripts/bootstrap.sh` fails:
+
+- confirm `python3 --version` is `3.12+`
+- confirm `node --version` is `20+`
+- confirm `npm` is available in your shell
+
+If `bash scripts/dev.sh` fails immediately:
+
+- run `bash scripts/dev.sh --check`
+- make sure `backend/.venv/` exists
+- make sure frontend dependencies were installed successfully
+
+If the page opens but generation fails:
+
+- verify your `API Key` is valid
+- verify `Base URL` is a working OpenAI-compatible endpoint
+- inspect the selected job in `History Workbench`
+- review `Job Events`, `Agent Status`, and `Recommended Next Steps`
+
+If a generated `.docx` exists but the result is blocked:
+
+- open the job detail panel
+- inspect `Agent Status`
+- preview the generated Word draft and markdown artifacts
+- review the verification artifacts under `jobs/<job-id>/artifacts/verification/`
+- fix issues manually, then rerun the job with a fresh API key
