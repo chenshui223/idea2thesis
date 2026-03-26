@@ -171,11 +171,16 @@ class ApplicationService:
 
     def get_artifact_content(self, job_id: str, path: str) -> dict[str, object]:
         target_path = self._resolve_registered_artifact_path(job_id, path)
+        preview_type = "text"
 
-        try:
-            content = target_path.read_text(encoding="utf-8")
-        except UnicodeDecodeError as exc:
-            raise ValueError("artifact is not a utf-8 text file") from exc
+        if target_path.suffix.lower() == ".docx":
+            content = self._extract_docx_preview(target_path)
+            preview_type = "docx"
+        else:
+            try:
+                content = target_path.read_text(encoding="utf-8")
+            except UnicodeDecodeError as exc:
+                raise ValueError("artifact is not a utf-8 text file") from exc
 
         limit = 20000
         truncated = len(content) > limit
@@ -183,6 +188,7 @@ class ApplicationService:
             "path": str(target_path),
             "content": content[:limit],
             "truncated": truncated,
+            "preview_type": preview_type,
         }
 
     def get_artifact_download_path(self, job_id: str, path: str) -> Path:
@@ -345,3 +351,13 @@ class ApplicationService:
         if system == "Windows":
             return ["explorer", str(target_path.parent)]
         return ["xdg-open", str(target_path.parent)]
+
+    def _extract_docx_preview(self, path: Path) -> str:
+        document = Document(path)
+        lines = [paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()]
+        for table in document.tables:
+            for row in table.rows:
+                cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                if cells:
+                    lines.append(" | ".join(cells))
+        return "\n".join(lines)

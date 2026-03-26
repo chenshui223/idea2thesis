@@ -1606,6 +1606,102 @@ describe("App history workbench", () => {
     );
   });
 
+  test("docx artifacts render a word preview instead of failing", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockResolvedValueOnce(mockSettingsResponse());
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        total: 1,
+        items: [
+          {
+            job_id: "job-1",
+            brief_title: "Thesis Job",
+            status: "completed",
+            stage: "completed",
+            final_disposition: "completed",
+            updated_at: "2026-03-25T00:00:00Z",
+            created_at: "2026-03-25T00:00:00Z"
+          }
+        ]
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        job_id: "job-1",
+        brief_title: "Thesis Job",
+        source_job_id: null,
+        status: "completed",
+        stage: "completed",
+        final_disposition: "completed",
+        validation_state: "completed",
+        workspace_path: "/jobs/job-1/workspace",
+        input_file_path: "/jobs/job-1/input/brief.docx",
+        error_message: "",
+        deleted_at: null,
+        created_at: "2026-03-25T00:00:00Z",
+        updated_at: "2026-03-25T00:02:00Z",
+        agents: [],
+        artifacts: [
+          {
+            kind: "thesis_draft_docx",
+            path: "/jobs/job-1/artifacts/agent/writer/thesis_draft.docx"
+          }
+        ],
+        runtime_preset: {
+          global: {
+            base_url: "https://api.example.com/v1",
+            model: "gpt-4.1-mini"
+          },
+          agents: {}
+        }
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        schema_version: "v1alpha1",
+        items: []
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        path: "/jobs/job-1/artifacts/agent/writer/thesis_draft.docx",
+        content: "示例大学\n图书管理系统\n摘要\n这是论文初稿。",
+        truncated: false,
+        preview_type: "docx"
+      })
+    );
+
+    render(<App />);
+
+    const generatedDocsSection = await screen.findByRole("heading", {
+      name: "Generated Docs"
+    });
+    await userEvent.click(
+      within(generatedDocsSection.closest("section") as HTMLElement).getByText((_, element) =>
+        element?.tagName.toLowerCase() === "li" &&
+        (element.textContent?.includes("artifacts/agent/writer/thesis_draft.docx") ?? false)
+      )
+    );
+
+    expect(await screen.findByText("Word Preview")).toBeInTheDocument();
+    expect(screen.getByText("File: thesis_draft.docx")).toBeInTheDocument();
+    expect(screen.getByText("Preview status: complete")).toBeInTheDocument();
+    expect(
+      screen.getByText((_, element) =>
+        element?.tagName.toLowerCase() === "article" &&
+        (element.textContent?.includes("示例大学") ?? false)
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText((_, element) =>
+        element?.tagName.toLowerCase() === "article" &&
+        (element.textContent?.includes("这是论文初稿。") ?? false)
+      )
+    ).toBeInTheDocument();
+  });
+
   test("job detail can download the generated workspace archive", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
     fetchMock.mockResolvedValueOnce(mockSettingsResponse());

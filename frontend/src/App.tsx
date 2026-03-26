@@ -316,6 +316,7 @@ export default function App() {
   const [artifactPreviewTitle, setArtifactPreviewTitle] = useState("");
   const [artifactPreviewFileName, setArtifactPreviewFileName] = useState("");
   const [artifactPreviewKind, setArtifactPreviewKind] = useState("");
+  const [artifactPreviewType, setArtifactPreviewType] = useState("text");
   const [artifactPreviewContent, setArtifactPreviewContent] = useState("");
   const [artifactPreviewTruncated, setArtifactPreviewTruncated] = useState(false);
   const [artifactPreviewError, setArtifactPreviewError] = useState("");
@@ -710,6 +711,7 @@ export default function App() {
     setArtifactPreviewTitle("");
     setArtifactPreviewFileName("");
     setArtifactPreviewKind("");
+    setArtifactPreviewType("text");
     setArtifactPreviewContent("");
     setArtifactPreviewTruncated(false);
     setArtifactPreviewError("");
@@ -725,12 +727,14 @@ export default function App() {
     setArtifactPreviewTitle(artifact.path);
     setArtifactPreviewFileName(artifact.path.split("/").pop() ?? "");
     setArtifactPreviewKind(artifact.kind);
+    setArtifactPreviewType("text");
     setArtifactPreviewContent("");
     setArtifactPreviewTruncated(false);
     setArtifactPreviewError("");
     try {
       const preview = await fetchArtifactContent(currentJobId, artifact);
       setArtifactPreviewTitle(preview.path);
+      setArtifactPreviewType(preview.preview_type);
       setArtifactPreviewContent(preview.content);
       setArtifactPreviewTruncated(preview.truncated);
     } catch (error) {
@@ -927,6 +931,7 @@ export default function App() {
         title={artifactPreviewTitle}
         fileName={artifactPreviewFileName}
         artifactKind={artifactPreviewKind}
+        previewType={artifactPreviewType}
         content={artifactPreviewContent}
         truncated={artifactPreviewTruncated}
         errorMessage={artifactPreviewError}

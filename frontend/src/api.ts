@@ -16,6 +16,7 @@ export type ArtifactContent = {
   path: string;
   content: string;
   truncated: boolean;
+  preview_type: string;
 };
 
 export type OpenArtifactResponse = {
@@ -236,7 +237,13 @@ export async function fetchArtifactContent(
   if (!response.ok) {
     throw new Error("failed to fetch artifact content");
   }
-  return response.json();
+  const body = await response.json();
+  return {
+    path: body.path ?? artifact.path,
+    content: body.content ?? "",
+    truncated: Boolean(body.truncated),
+    preview_type: body.preview_type ?? "text"
+  };
 }
 
 export async function downloadArtifact(

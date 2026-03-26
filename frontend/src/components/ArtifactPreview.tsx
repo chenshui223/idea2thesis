@@ -2,6 +2,7 @@ type ArtifactPreviewProps = {
   title: string;
   fileName: string;
   artifactKind: string;
+  previewType: string;
   content: string;
   truncated: boolean;
   errorMessage: string;
@@ -20,15 +21,17 @@ export function ArtifactPreview(props: ArtifactPreviewProps) {
       ? (props.truncated ? "truncated" : "complete")
       : "idle";
   const previewLabel = props.fileName
-    ? (
+    ? props.previewType === "docx"
+      ? "Word Preview"
+      : (
         props.fileName.endsWith(".py") ||
         props.fileName.endsWith(".ts") ||
         props.fileName.endsWith(".tsx") ||
         props.fileName.endsWith(".js") ||
         props.fileName.endsWith(".json")
       )
-      ? "Code Preview"
-      : "Document Preview"
+        ? "Code Preview"
+        : "Document Preview"
     : "Artifact Preview";
   const isCodePreview = previewLabel === "Code Preview";
 
