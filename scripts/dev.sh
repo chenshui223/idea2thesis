@@ -29,8 +29,11 @@ require_command() {
 check_environment() {
   require_file "$BACKEND_DIR/pyproject.toml" "Missing backend project metadata."
   require_file "$FRONTEND_DIR/package.json" "Missing frontend package metadata."
-  require_file "$BACKEND_PYTHON" "Missing backend virtual environment. Run bash scripts/bootstrap.sh first."
   require_command "npm" "Missing npm. Install Node.js 20+ first."
+}
+
+check_runtime_environment() {
+  require_file "$BACKEND_PYTHON" "Missing backend virtual environment. Run bash scripts/bootstrap.sh first."
 }
 
 if [[ "${1:-}" == "--check" ]]; then
@@ -40,6 +43,7 @@ if [[ "${1:-}" == "--check" ]]; then
 fi
 
 check_environment
+check_runtime_environment
 
 cleanup() {
   if [[ -n "${BACKEND_PID:-}" ]]; then
